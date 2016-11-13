@@ -48,7 +48,7 @@ public class Classpath implements Entry {
 
         String jh = System.getenv("JAVA_HOME");
         if (jh != null && !jh.equals("")) {
-            return jh;
+            return FilenameUtils.concat(jh, "jre");
         }
 
         throw new RuntimeException("Can not find jre folder!");

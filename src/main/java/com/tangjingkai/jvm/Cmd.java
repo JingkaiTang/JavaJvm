@@ -10,6 +10,7 @@ import java.util.Arrays;
 public class Cmd {
     public static final String USAGE = "JavaJvm [options] class [args...]";
     public String cpOption;
+    public String xjreOption;
     public String clsFile;
     public String[] args;
 
@@ -25,16 +26,17 @@ public class Cmd {
         OptionGroup cpGroup = new OptionGroup()
                 .addOption(classpath)
                 .addOption(cp);
+        Option xjre = new Option("Xjre", true, "path to jre");
 
         Options options = new Options()
                 .addOptionGroup(helpGroup)
                 .addOption(version)
-                .addOptionGroup(cpGroup);
+                .addOptionGroup(cpGroup)
+                .addOption(xjre);
 
         CommandLineParser parser = new DefaultParser();
-        CommandLine cl = null;
         try {
-            cl = parser.parse(options, rawArgs);
+            CommandLine cl = parser.parse(options, rawArgs);
 
             if (helpGroup.getSelected() != null) {
                 printUsage(options);
@@ -54,12 +56,19 @@ public class Cmd {
             }
 
             Cmd cmd = new Cmd();
+
             String cpOption = "";
             if (cpGroup.getSelected() != null) {
                 cpOption = cl.getOptionValue(cpGroup.getSelected());
             }
 
+            String xjreOption = "";
+            if (cl.hasOption(xjre.getOpt())) {
+                xjreOption = cl.getOptionValue(xjre.getOpt());
+            }
+
             cmd.cpOption = cpOption;
+            cmd.xjreOption = xjreOption;
             cmd.clsFile = args[0];
             cmd.args = Arrays.copyOfRange(args, 1, args.length);
 

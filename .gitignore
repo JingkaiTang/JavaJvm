@@ -21,3 +21,4 @@ build/
 out/
 gradle.properties
 JavaJvm.sh
+src/test/

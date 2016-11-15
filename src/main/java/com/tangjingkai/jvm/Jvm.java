@@ -1,5 +1,6 @@
 package com.tangjingkai.jvm;
 
+import com.tangjingkai.jvm.classfile.ClassFile;
 import com.tangjingkai.jvm.classpath.Classpath;
 
 import java.util.Arrays;
@@ -23,13 +24,17 @@ public class Jvm {
         Classpath cp = new Classpath(cmd.xjreOption, cmd.cpOption);
         System.out.println(String.format("classpath:%s class:%s args: %s", cp.getPath(), cmd.clsFile, Arrays.toString(cmd.args)));
 
-        String className = cmd.clsFile.replace(".", "/");
+        ClassFile cf = loadClass(cmd.clsFile, cp);
+
+        System.out.println(String.format("class file:%s", cf));
+    }
+
+    public static ClassFile loadClass(String cls, Classpath cp) {
+        String className = cls.replace(".", "/");
         byte[] data = cp.readClass(className);
-
         if (data == null) {
-            throw new RuntimeException(String.format("Cloud not find or load main class %s", cmd.clsFile));
+            throw new RuntimeException(String.format("Cloud not find or load main class %s", cls));
         }
-
-        System.out.println(String.format("class data:%s", data));
+        return new ClassFile(data);
     }
 }

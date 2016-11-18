@@ -1,6 +1,8 @@
 package com.tangjingkai.jvm;
 
 import com.tangjingkai.jvm.classfile.ClassFile;
+import com.tangjingkai.jvm.classfile.ConstantInfo;
+import com.tangjingkai.jvm.classfile.MemberInfo;
 import com.tangjingkai.jvm.classpath.Classpath;
 
 import java.util.Arrays;
@@ -25,8 +27,13 @@ public class Jvm {
         System.out.println(String.format("classpath:%s class:%s args: %s", cp.getPath(), cmd.clsFile, Arrays.toString(cmd.args)));
 
         ClassFile cf = loadClass(cmd.clsFile, cp);
+        MemberInfo mainMethod = getMainMethod(cf);
 
-        System.out.println(String.format("class file:%s", cf));
+        if (mainMethod == null) {
+            throw new RuntimeException(String.format("Main method not found in class %s", cmd.clsFile));
+        }
+
+        new Interpreter().interpret(mainMethod);
     }
 
     public static ClassFile loadClass(String cls, Classpath cp) {
@@ -36,5 +43,14 @@ public class Jvm {
             throw new RuntimeException(String.format("Cloud not find or load main class %s", cls));
         }
         return new ClassFile(data);
+    }
+
+    public static MemberInfo getMainMethod(ClassFile cf) {
+        for (MemberInfo mi: cf.getMethods()) {
+            if (mi.getName().equals("main") && mi.getDescriptor().equals("([Ljava/lang/String;)V")) {
+                return mi;
+            }
+        }
+        return null;
     }
 }

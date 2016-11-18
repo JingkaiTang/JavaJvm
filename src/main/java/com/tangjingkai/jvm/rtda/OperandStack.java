@@ -6,8 +6,23 @@ package com.tangjingkai.jvm.rtda;
 public class OperandStack {
     Stack<Slot> stack;
 
+    @Override
+    public String toString() {
+        return "OperandStack{" +
+                "stack=" + stack +
+                '}';
+    }
+
     public OperandStack(int maxStack) {
         stack = new Stack<>(maxStack);
+    }
+
+    public void pushSlot(Slot slot) {
+        stack.push(slot);
+    }
+
+    public Slot popSlot() {
+        return stack.pop();
     }
 
     public void pushInt(int val) {
@@ -16,6 +31,14 @@ public class OperandStack {
 
     public int popInt() {
         return stack.pop().getInt();
+    }
+
+    public void pushInt(byte val) {
+        pushInt(Byte.toUnsignedInt(val));
+    }
+
+    public void pushInt(short val) {
+        pushInt(Short.toUnsignedInt(val));
     }
 
     public void pushFloat(float val) {

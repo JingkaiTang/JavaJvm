@@ -7,6 +7,23 @@ public class Slot {
     int num;
     Object ref;
 
+    @Override
+    public String toString() {
+        return "Slot{" +
+                "num=" + num +
+                ", ref=" + ref +
+                '}';
+    }
+
+    public Slot() {
+
+    }
+
+    public Slot(Slot slot) {
+        this.num = slot.getNum();
+        this.ref = slot.getRef();
+    }
+
     public int getNum() {
         return num;
     }
@@ -25,21 +42,21 @@ public class Slot {
         return this;
     }
 
+    public int getInt() {
+        return getNum();
+    }
+
     public Slot setInt(int val) {
         setNum(val);
         return this;
     }
 
-    public int getInt() {
-        return getNum();
+    public float getFloat() {
+        return Float.intBitsToFloat(getInt());
     }
 
     public Slot setFloat(float val) {
         setInt(Float.floatToIntBits(val));
         return this;
-    }
-
-    public float getFloat() {
-        return Float.intBitsToFloat(getInt());
     }
 }

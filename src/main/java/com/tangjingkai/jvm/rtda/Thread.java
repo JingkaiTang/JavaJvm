@@ -11,6 +11,10 @@ public class Thread {
         stack = new Stack<>(1024);
     }
 
+    public Frame buildFrame(short maxLocals, short maxStack) {
+        return new Frame(this, maxLocals, maxStack);
+    }
+
     public void pushFrame(Frame frame) {
         stack.push(frame);
     }
@@ -23,11 +27,11 @@ public class Thread {
         return stack.top();
     }
 
-    public int getPc() {
+    public int getPC() {
         return pc;
     }
 
-    public void setPc(int pc) {
+    public void setPC(int pc) {
         this.pc = pc;
     }
 }

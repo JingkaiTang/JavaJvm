@@ -14,6 +14,43 @@ public class ClassFile {
     private short thisClass;
     private short superClass;
     private short[] interfaces;
+
+    public short getMinorVersion() {
+        return minorVersion;
+    }
+
+    public short getMajorVersion() {
+        return majorVersion;
+    }
+
+    public short getAccessFlags() {
+        return accessFlags;
+    }
+
+    public short getThisClass() {
+        return thisClass;
+    }
+
+    public short getSuperClass() {
+        return superClass;
+    }
+
+    public short[] getInterfaces() {
+        return interfaces;
+    }
+
+    public MemberInfo[] getFields() {
+        return fields;
+    }
+
+    public MemberInfo[] getMethods() {
+        return methods;
+    }
+
+    public AttributeInfo[] getAttributes() {
+        return attributes;
+    }
+
     private MemberInfo[] fields;
     private MemberInfo[] methods;
     private AttributeInfo[] attributes;

@@ -9,6 +9,13 @@ public class LocalVars {
 
     Slot[] slots;
 
+    @Override
+    public String toString() {
+        return "LocalVars{" +
+                "slots=" + Arrays.toString(slots) +
+                '}';
+    }
+
     public LocalVars(int maxLocals) {
         slots = new Slot[maxLocals];
         Arrays.setAll(slots, i -> new Slot());

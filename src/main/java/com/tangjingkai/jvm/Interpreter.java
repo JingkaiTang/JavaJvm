@@ -1,34 +1,26 @@
 package com.tangjingkai.jvm;
 
-import com.tangjingkai.jvm.classfile.CodeAttribute;
-import com.tangjingkai.jvm.classfile.MemberInfo;
 import com.tangjingkai.jvm.instructions.BytecodeReader;
 import com.tangjingkai.jvm.instructions.Instruction;
 import com.tangjingkai.jvm.instructions.Instructions;
 import com.tangjingkai.jvm.rtda.Frame;
 import com.tangjingkai.jvm.rtda.Thread;
+import com.tangjingkai.jvm.rtda.heap.JJvmMethod;
 
 /**
  * Created by totran on 11/17/16.
  */
 public class Interpreter {
-    public void interpret(MemberInfo methodInfo) {
-        CodeAttribute codeAttribute = methodInfo.getCodeAttribute();
-        if (codeAttribute != null) {
-            short maxLocals = codeAttribute.getMaxLocals();
-            short maxStack = codeAttribute.getMaxStack();
-            byte[] bytecode = codeAttribute.getCode();
+    public void interpret(JJvmMethod method) {
+        Thread thread = new Thread();
+        Frame frame = thread.buildFrame(method);
+        thread.pushFrame(frame);
 
-            Thread thread = new Thread();
-            Frame frame = thread.buildFrame(maxLocals, maxStack);
-            thread.pushFrame(frame);
-
-            try {
-                loop(thread, bytecode);
-            } catch (Exception e) {
-                e.printStackTrace();
-                catchErr(frame);
-            }
+        try {
+            loop(thread, method.getCode());
+        } catch (Exception e) {
+            e.printStackTrace();
+            catchErr(frame);
         }
     }
 

@@ -1,5 +1,7 @@
 package com.tangjingkai.jvm.rtda;
 
+import com.tangjingkai.jvm.rtda.heap.JJvmMethod;
+
 /**
  * Created by totran on 11/16/16.
  */
@@ -11,8 +13,8 @@ public class Thread {
         stack = new Stack<>(1024);
     }
 
-    public Frame buildFrame(short maxLocals, short maxStack) {
-        return new Frame(this, maxLocals, maxStack);
+    public Frame buildFrame(JJvmMethod method) {
+        return new Frame(this, method);
     }
 
     public void pushFrame(Frame frame) {

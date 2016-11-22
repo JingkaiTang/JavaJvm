@@ -1,5 +1,7 @@
 package com.tangjingkai.jvm.rtda;
 
+import com.tangjingkai.jvm.rtda.heap.JJvmMethod;
+
 /**
  * Created by totran on 11/16/16.
  */
@@ -7,20 +9,22 @@ public class Frame {
     LocalVars localVars;
     OperandStack operandStack;
     Thread thread;
+    JJvmMethod method;
     int nextPC;
+
+    public Frame(Thread thread, JJvmMethod method) {
+        this.thread = thread;
+        this.method = method;
+        this.localVars = new LocalVars(method.getMaxLocals());
+        this.operandStack = new OperandStack(method.getMaxStack());
+    }
+
+    public JJvmMethod getMethod() {
+        return method;
+    }
 
     public int getNextPC() {
         return nextPC;
-    }
-
-    public Frame(Thread thread, int maxLocals, int maxStack) {
-        this.localVars = new LocalVars(maxLocals);
-        this.operandStack = new OperandStack(maxStack);
-        this.thread = thread;
-    }
-
-    public Frame(Thread thread, short maxLocals, short maxStack) {
-        this(thread, Short.toUnsignedInt(maxLocals), Short.toUnsignedInt(maxStack));
     }
 
     public void setNextPC(int nextPC) {

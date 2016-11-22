@@ -1,11 +1,9 @@
 package com.tangjingkai.jvm;
 
-import com.tangjingkai.jvm.classfile.ClassFile;
-import com.tangjingkai.jvm.classfile.ConstantInfo;
-import com.tangjingkai.jvm.classfile.MemberInfo;
 import com.tangjingkai.jvm.classpath.Classpath;
-
-import java.util.Arrays;
+import com.tangjingkai.jvm.rtda.heap.JJvmClass;
+import com.tangjingkai.jvm.rtda.heap.JJvmClassLoader;
+import com.tangjingkai.jvm.rtda.heap.JJvmMethod;
 
 /**
  * Created by totran on 11/12/16.
@@ -18,39 +16,30 @@ public class Jvm {
         if (cmd == null) {
             System.exit(1);
         } else {
-            startJvm(cmd);
+            new Jvm(cmd).startJvm();
         }
     }
 
-    public static void startJvm(Cmd cmd) {
-        Classpath cp = new Classpath(cmd.xjreOption, cmd.cpOption);
-        System.out.println(String.format("classpath:%s class:%s args: %s", cp.getPath(), cmd.clsFile, Arrays.toString(cmd.args)));
+    Cmd cmd;
 
-        ClassFile cf = loadClass(cmd.clsFile, cp);
-        MemberInfo mainMethod = getMainMethod(cf);
+    public Jvm(Cmd cmd) {
+        this.cmd = cmd;
+    }
+
+    public void startJvm() {
+        Classpath cp = new Classpath(cmd.xjreOption, cmd.cpOption);
+        JJvmClassLoader classLoader = new JJvmClassLoader(cp);
+
+        String className = cmd.clsFile.replace('.', '/');
+        JJvmClass mainClass = classLoader.loadClass(className);
+        JJvmMethod mainMethod = mainClass.getMainMethod();
 
         if (mainMethod == null) {
-            throw new RuntimeException(String.format("Main method not found in class %s", cmd.clsFile));
+            System.out.println(String.format("Main method not found in class %s", cmd.clsFile));
+        } else {
+            new Interpreter().interpret(mainMethod);
         }
-
-        new Interpreter().interpret(mainMethod);
     }
 
-    public static ClassFile loadClass(String cls, Classpath cp) {
-        String className = cls.replace(".", "/");
-        byte[] data = cp.readClass(className);
-        if (data == null) {
-            throw new RuntimeException(String.format("Cloud not find or load main class %s", cls));
-        }
-        return new ClassFile(data);
-    }
 
-    public static MemberInfo getMainMethod(ClassFile cf) {
-        for (MemberInfo mi: cf.getMethods()) {
-            if (mi.getName().equals("main") && mi.getDescriptor().equals("([Ljava/lang/String;)V")) {
-                return mi;
-            }
-        }
-        return null;
-    }
 }

@@ -5,6 +5,11 @@ package com.tangjingkai.jvm.classfile;
  */
 public class MemberInfo {
     private ConstantPool constantPool;
+
+    public short getAccessFlags() {
+        return accessFlags;
+    }
+
     private short accessFlags;
     private short nameIndex;
     private short descriptorIndex;
@@ -44,6 +49,15 @@ public class MemberInfo {
         for (AttributeInfo attribute : attributes) {
             if (attribute instanceof CodeAttribute) {
                 return (CodeAttribute) attribute;
+            }
+        }
+        return null;
+    }
+
+    public ConstantValueAttribute getConstantValueAttribute() {
+        for (AttributeInfo attrInfo : attributes) {
+            if (attrInfo instanceof ConstantValueAttribute) {
+                return (ConstantValueAttribute) attrInfo;
             }
         }
         return null;

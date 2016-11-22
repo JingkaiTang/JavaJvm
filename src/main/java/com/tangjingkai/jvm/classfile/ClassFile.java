@@ -9,6 +9,11 @@ public class ClassFile {
     // private int magic;
     private short minorVersion;
     private short majorVersion;
+
+    public ConstantPool getConstantPool() {
+        return constantPool;
+    }
+
     private ConstantPool constantPool;
     private short accessFlags;
     private short thisClass;

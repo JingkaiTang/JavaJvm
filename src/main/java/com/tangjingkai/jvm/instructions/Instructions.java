@@ -4,6 +4,7 @@ import com.tangjingkai.jvm.rtda.Frame;
 import com.tangjingkai.jvm.rtda.LocalVars;
 import com.tangjingkai.jvm.rtda.OperandStack;
 import com.tangjingkai.jvm.rtda.Slot;
+import com.tangjingkai.jvm.rtda.heap.*;
 
 import java.lang.annotation.*;
 import java.lang.reflect.InvocationTargetException;
@@ -287,12 +288,69 @@ public class Instructions {
         };
     }
 
-    /*
-     * TODO:
+    /**
      * 0x12 ldc
      * 0x13 ldc_w
+     */
+    @BytecodeRange(lower = 0x12, upper = 0x13)
+    private InstructionGenerator ldc(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                IndexInstruction i = new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        OperandStack stack = frame.getOperandStack();
+                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        Object c = cp.getConstant(index);
+                        if (c instanceof Integer) {
+                            stack.pushInt((Integer) c);
+                        } else if (c instanceof Float) {
+                            stack.pushFloat((Float) c);
+                        //} else if (c instanceof String) {
+                            // TODO: string
+                        //} else if (c instanceof ClassRef) {
+                            // TODO: ClassRef
+                        } else {
+                            throw new RuntimeException("Unimplemented ldc!");
+                        }
+                    }
+                };
+                if (code == 0x13) {
+                    i.setWide();
+                }
+                return i;
+            }
+        };
+    }
+
+    /**
      * 0x14 ldc2_w
      */
+    @Bytecode(0x14)
+    private InstructionGenerator ldc2_w(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        OperandStack stack = frame.getOperandStack();
+                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        Object c = cp.getConstant(index);
+                        if (c instanceof Long) {
+                            stack.pushLong((Long) c);
+                        } else if (c instanceof Double) {
+                            stack.pushDouble((Double) c);
+                        } else {
+                            throw new RuntimeException("java.lang.ClassFormatError");
+                        }
+                    }
+                }.setWide();
+            }
+        };
+    }
+
 
     /**
      * 0x15 iload
@@ -555,7 +613,7 @@ public class Instructions {
     @BytecodeRange(lower = 0x59, upper = 0x5e)
     private InstructionGenerator dupn_xm(int code) {
         int n = (code < 0x5c) ? 1 : 2;
-        int m = (n == 1) ? code - 0x59 : code - 0x5c;
+        int m = (code - 0x59) % 3 + n;
         return new CachedInstructionGenerator(code) {
             @Override
             Instruction construct() {
@@ -1352,22 +1410,493 @@ public class Instructions {
      * 0xaf dreturn
      * 0xb0 areturn
      * 0xb1 return
+     */
+
+    private abstract class ActionByDiscriptor {
+        public ActionByDiscriptor(String descriptor) {
+            this.descriptor = descriptor;
+        }
+
+        private String descriptor;
+
+        protected abstract void whenInt();
+
+        protected abstract void whenFloat();
+
+        protected abstract void whenLong();
+
+        protected abstract void whenDouble();
+
+        protected abstract void whenRef();
+
+        public void action() {
+            switch (descriptor.charAt(0)) {
+                case 'Z':
+                case 'B':
+                case 'C':
+                case 'S':
+                case 'I':
+                    whenInt();
+                    break;
+                case 'F':
+                    whenFloat();
+                    break;
+                case 'J':
+                    whenLong();
+                    break;
+                case 'D':
+                    whenDouble();
+                    break;
+                case 'L':
+                case '[':
+                    whenRef();
+                    break;
+                default:
+                    throw new RuntimeException(String.format("Unknown Descriptor %s", descriptor));
+            }
+        }
+    }
+
+    /**
      * 0xb2 getstatic
+     */
+    @Bytecode(0xb2)
+    private InstructionGenerator getstatic(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmMethod method = frame.getMethod();
+                        JJvmClass currentClass = method.getJJvmClass();
+                        JJvmConstantPool cp = currentClass.getConstantPool();
+                        FieldRef fieldRef = (FieldRef) cp.getConstant(index);
+                        JJvmField field = fieldRef.resolvedField();
+                        JJvmClass cls = field.getJJvmClass();
+                        if (!field.isStatic()) {
+                            throw new RuntimeException("java.lang.IncompatibleClassChangeError");
+                        }
+
+                        String descriptor = field.getDescriptor();
+                        int slotId = field.getSlotId();
+                        JJvmSlots slots = cls.getStaticVars();
+                        OperandStack stack = frame.getOperandStack();
+
+                        new ActionByDiscriptor(descriptor) {
+                            @Override
+                            protected void whenInt() {
+                                stack.pushInt(slots.getInt(slotId));
+                            }
+
+                            @Override
+                            protected void whenFloat() {
+                                stack.pushFloat(slots.getFloat(slotId));
+                            }
+
+                            @Override
+                            protected void whenLong() {
+                                stack.pushLong(slots.getLong(slotId));
+                            }
+
+                            @Override
+                            protected void whenDouble() {
+                                stack.pushDouble(slots.getDouble(slotId));
+                            }
+
+                            @Override
+                            protected void whenRef() {
+                                stack.pushRef(slots.getRef(slotId));
+                            }
+                        }.action();
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+
+    /**
      * 0xb3 putstatic
+     */
+    @Bytecode(0xb3)
+    private InstructionGenerator putstatic(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmMethod method = frame.getMethod();
+                        JJvmClass currentClass = method.getJJvmClass();
+                        JJvmConstantPool cp = currentClass.getConstantPool();
+                        FieldRef fieldRef = (FieldRef) cp.getConstant(index);
+                        JJvmField field = fieldRef.resolvedField();
+                        JJvmClass cls = field.getJJvmClass();
+                        if (!field.isStatic()) {
+                            throw new RuntimeException("java.lang.IncompatibleClassChangeError");
+                        }
+                        if (field.isFinal()) {
+                            if (currentClass != cls || !method.getName().equals("<clinit>")) {
+                                throw new RuntimeException("java.lang.IllegalAccessError");
+                            }
+                        }
+                        String descriptor = field.getDescriptor();
+                        int slotId = field.getSlotId();
+                        JJvmSlots slots = cls.getStaticVars();
+                        OperandStack stack = frame.getOperandStack();
+
+                        new ActionByDiscriptor(descriptor) {
+                            @Override
+                            protected void whenInt() {
+                                slots.setInt(slotId, stack.popInt());
+                            }
+
+                            @Override
+                            protected void whenFloat() {
+                                slots.setFloat(slotId, stack.popFloat());
+                            }
+
+                            @Override
+                            protected void whenLong() {
+                                slots.setLong(slotId, stack.popLong());
+                            }
+
+                            @Override
+                            protected void whenDouble() {
+                                slots.setDouble(slotId, stack.popDouble());
+                            }
+
+                            @Override
+                            protected void whenRef() {
+                                slots.setRef(slotId, stack.popRef());
+                            }
+                        }.action();
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+    /**
      * 0xb4 getfield
+     */
+    @Bytecode(0xb4)
+    private InstructionGenerator getfield(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        JJvmField field = ((FieldRef) cp.getConstant(index)).resolvedField();
+                        if (field.isStatic()) {
+                            throw new RuntimeException("java.lang.IncompatibleClassChangeError");
+                        }
+
+                        OperandStack stack = frame.getOperandStack();
+                        JJvmObject ref = (JJvmObject) stack.popRef();
+                        if (ref == null) {
+                            throw new RuntimeException("java.lang.IncompatibleClassChangeError");
+                        }
+
+                        String descriptor = field.getDescriptor();
+                        int slotId = field.getSlotId();
+                        JJvmSlots slots = ref.getFields();
+
+                        new ActionByDiscriptor(descriptor) {
+                            @Override
+                            protected void whenInt() {
+                                stack.pushInt(slots.getInt(slotId));
+                            }
+
+                            @Override
+                            protected void whenFloat() {
+                                stack.pushFloat(slots.getFloat(slotId));
+                            }
+
+                            @Override
+                            protected void whenLong() {
+                                stack.pushLong(slots.getLong(slotId));
+                            }
+
+                            @Override
+                            protected void whenDouble() {
+                                stack.pushDouble(slots.getDouble(slotId));
+                            }
+
+                            @Override
+                            protected void whenRef() {
+                                stack.pushRef(slots.getRef(slotId));
+                            }
+                        }.action();
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+    /**
      * 0xb5 putfield
+     */
+    @Bytecode(0xb5)
+    private InstructionGenerator putfield(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmMethod curMethod = frame.getMethod();
+                        JJvmClass curClass = curMethod.getJJvmClass();
+                        JJvmConstantPool cp = curClass.getConstantPool();
+                        FieldRef fieldRef = (FieldRef) cp.getConstant(index);
+                        JJvmField field = fieldRef.resolvedField();
+
+                        if (field.isStatic()) {
+                            throw new RuntimeException("java.lang.IncompatibleClassChangeError");
+                        }
+
+                        if (field.isFinal()) {
+                            if (curClass != field.getJJvmClass() || !curMethod.getName().equals("<init>")) {
+                                throw new RuntimeException("java.lang.IllegalAccessError");
+                            }
+                        }
+
+                        String descriptor = field.getDescriptor();
+                        int slotId = field.getSlotId();
+                        OperandStack stack = frame.getOperandStack();
+
+                        new ActionByDiscriptor(descriptor) {
+                            @Override
+                            protected void whenInt() {
+                                int val = stack.popInt();
+                                JJvmObject ref = (JJvmObject) stack.popRef();
+                                if (ref == null) {
+                                    throw new RuntimeException("java.lang.NullPointerException");
+                                }
+                                ref.getFields().setInt(slotId, val);
+                            }
+
+                            @Override
+                            protected void whenFloat() {
+                                float val = stack.popFloat();
+                                JJvmObject ref = (JJvmObject) stack.popRef();
+                                if (ref == null) {
+                                    throw new RuntimeException("java.lang.NullPointerException");
+                                }
+                                ref.getFields().setFloat(slotId, val);
+                            }
+
+                            @Override
+                            protected void whenLong() {
+                                long val = stack.popLong();
+                                JJvmObject ref = (JJvmObject) stack.popRef();
+                                if (ref == null) {
+                                    throw new RuntimeException("java.lang.NullPointerException");
+                                }
+                                ref.getFields().setLong(slotId, val);
+                            }
+
+                            @Override
+                            protected void whenDouble() {
+                                double val = stack.popDouble();
+                                JJvmObject ref = (JJvmObject) stack.popRef();
+                                if (ref == null) {
+                                    throw new RuntimeException("java.lang.NullPodoubleerException");
+                                }
+                                ref.getFields().setDouble(slotId, val);
+                            }
+
+                            @Override
+                            protected void whenRef() {
+                                Object val = stack.popRef();
+                                JJvmObject ref = (JJvmObject) stack.popRef();
+                                if (ref == null) {
+                                    throw new RuntimeException("java.lang.NullPoObjecterException");
+                                }
+                                ref.getFields().setRef(slotId, val);
+                            }
+                        }.action();
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+    /**
      * 0xb6 invokevirtual
+     */
+    @Bytecode(0xb6)
+    private InstructionGenerator invokeVirtual(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        MethodRef methodRef = (MethodRef) cp.getConstant(index);
+                        if (methodRef.getName().equals("println")) {
+                            OperandStack stack = frame.getOperandStack();
+                            switch (methodRef.getDescriptor()) {
+                                case "(Z)V":
+                                    System.out.println(stack.popInt() != 0);
+                                    break;
+                                case "(C)V":
+                                    System.out.println((char) stack.popInt());
+                                    break;
+                                case "(B)V":
+                                case "(S)V":
+                                case "(I)V":
+                                    System.out.println(stack.popInt());
+                                    break;
+                                case "(J)V":
+                                    System.out.println(stack.popLong());
+                                    break;
+                                case "(F)V":
+                                    System.out.println(stack.popFloat());
+                                    break;
+                                case "(D)V":
+                                    System.out.println(stack.popDouble());
+                                    break;
+                                default:
+                                    throw new RuntimeException("println: " + methodRef.getDescriptor());
+                            }
+                            stack.popRef();
+                        }
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+    /**
      * 0xb7 invokespecial
+     */
+    @Bytecode(0xb7)
+    private InstructionGenerator invokeSpecial(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        frame.getOperandStack().popRef();
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+    /*
+     * TODO:
      * 0xb8 invokestatic
      * 0xb9 invokeinterface
      * 0xba invokedynamic
+     */
+
+
+    /**
      * 0xbb new
+     */
+    @Bytecode(0xbb)
+    private InstructionGenerator inew(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        ClassRef classRef = (ClassRef) cp.getConstant(index);
+                        JJvmClass cls = classRef.resolvedClass();
+
+                        if (cls.isInterface() || cls.isAbstract()) {
+                            throw new RuntimeException("java.lang.InstantiationError");
+                        }
+
+                        JJvmObject ref = cls.newObject();
+                        frame.getOperandStack().pushRef(ref);
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+    /*
+     * TODO:
      * 0xbc newarray
      * 0xbd anewarray
      * 0xbe arraylength
      * 0xbf athrow
+     */
+
+    /**
      * 0xc0 checkcast
+     */
+    @Bytecode(0xc0)
+    private InstructionGenerator checkcast(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        OperandStack stack = frame.getOperandStack();
+                        JJvmObject ref = (JJvmObject) stack.popRef();
+                        stack.pushRef(ref);
+                        if (ref == null) {
+                            return;
+                        }
+
+                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        ClassRef classRef = (ClassRef) cp.getConstant(index);
+                        JJvmClass jjvmClass = classRef.resolvedClass();
+                        if (!ref.isInstanceOf(jjvmClass)) {
+                            throw new RuntimeException("java.lang.ClassCastException");
+                        }
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+    /**
      * 0xc1 instanceof
+     */
+    @Bytecode(0xc1)
+    private InstructionGenerator i_instanceof(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        OperandStack stack = frame.getOperandStack();
+                        JJvmObject ref = (JJvmObject) stack.popRef();
+                        if (ref == null) {
+                            stack.pushInt(0);
+                            return;
+                        }
+
+                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        ClassRef classRef = (ClassRef) cp.getConstant(index);
+                        JJvmClass jjvmClass = classRef.resolvedClass();
+                        if (ref.isInstanceOf(jjvmClass)) {
+                            stack.pushInt(1);
+                        } else {
+                            stack.pushInt(0);
+                        }
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+    /*
+     * TODO:
      * 0xc2 monitorenter
      * 0xc3 monitorexit
      */

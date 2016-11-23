@@ -10,6 +10,11 @@ public class JJvmMethod extends JJvmClassMember {
     int maxStack;
     int maxLocals;
     byte[] code;
+    int argSlotCount;
+
+    public int getArgSlotCount() {
+        return argSlotCount;
+    }
 
     public int getMaxStack() {
         return maxStack;
@@ -30,6 +35,17 @@ public class JJvmMethod extends JJvmClassMember {
             this.maxStack = Short.toUnsignedInt(codeAttr.getMaxStack());
             this.maxLocals = Short.toUnsignedInt(codeAttr.getMaxLocals());
             this.code = codeAttr.getCode();
+        }
+        this.argSlotCount = 0;
+        JJvmMethodDescriptor md = JJvmMethodDescriptor.parse(method.getDescriptor());
+        md.parameterTypes.forEach(s -> {
+            this.argSlotCount++;
+            if (s.equals("J") || s.equals("D")) {
+                this.argSlotCount++;
+            }
+        });
+        if (!isStatic()) {
+            this.argSlotCount++;
         }
     }
 
@@ -63,5 +79,9 @@ public class JJvmMethod extends JJvmClassMember {
 
     public boolean isStrict() {
         return 0 != (accessFlags & JJvmAccessFlag.ACC_STRICT);
+    }
+
+    public boolean isAbstract() {
+        return 0 != (accessFlags & JJvmAccessFlag.ACC_ABSTRACT);
     }
 }

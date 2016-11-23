@@ -13,6 +13,18 @@ public class OperandStack {
                 '}';
     }
 
+    public Object getRefFromTop(int d) {
+        Slot[] slots = new Slot[d];
+        for (int i = 0; i < d; i++) {
+            slots[i] = stack.pop();
+        }
+        Slot slot = stack.top();
+        for (int i = d-1; i >= 0; i--) {
+            stack.push(slots[i]);
+        }
+        return slot.ref;
+    }
+
     public OperandStack(int maxStack) {
         stack = new Stack<>(maxStack);
     }

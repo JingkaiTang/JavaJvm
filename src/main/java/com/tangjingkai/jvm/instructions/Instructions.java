@@ -1,9 +1,7 @@
 package com.tangjingkai.jvm.instructions;
 
-import com.tangjingkai.jvm.rtda.Frame;
-import com.tangjingkai.jvm.rtda.LocalVars;
-import com.tangjingkai.jvm.rtda.OperandStack;
-import com.tangjingkai.jvm.rtda.Slot;
+import com.tangjingkai.jvm.rtda.*;
+import com.tangjingkai.jvm.rtda.Thread;
 import com.tangjingkai.jvm.rtda.heap.*;
 
 import java.lang.annotation.*;
@@ -307,9 +305,9 @@ public class Instructions {
                             stack.pushInt((Integer) c);
                         } else if (c instanceof Float) {
                             stack.pushFloat((Float) c);
-                        //} else if (c instanceof String) {
+                            //} else if (c instanceof String) {
                             // TODO: string
-                        //} else if (c instanceof ClassRef) {
+                            //} else if (c instanceof ClassRef) {
                             // TODO: ClassRef
                         } else {
                             throw new RuntimeException("Unimplemented ldc!");
@@ -1402,8 +1400,7 @@ public class Instructions {
         };
     }
 
-    /*
-     * TODO:
+    /**
      * 0xac ireturn
      * 0xad lreturn
      * 0xae freturn
@@ -1411,6 +1408,45 @@ public class Instructions {
      * 0xb0 areturn
      * 0xb1 return
      */
+    @BytecodeRange(lower = 0xac, upper = 0xb1)
+    private InstructionGenerator treturn(int code) {
+        return new CachedInstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new NoOperandsInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        if (code == 0xb1) {
+                            frame.getThread().popFrame();
+                            return;
+                        }
+                        OperandStack ret = frame.getThread().popFrame().getOperandStack();
+                        OperandStack inv = frame.getThread().currentFrame().getOperandStack();
+                        switch (code) {
+                            case 0xac:
+                                inv.pushInt(ret.popInt());
+                                break;
+                            case 0xad:
+                                inv.pushLong(ret.popLong());
+                                break;
+                            case 0xae:
+                                inv.pushFloat(ret.popFloat());
+                                break;
+                            case 0xaf:
+                                inv.pushDouble(ret.popDouble());
+                                break;
+                            case 0xb0:
+                                inv.pushRef(ret.popRef());
+                                break;
+                            default:
+                                throw new RuntimeException("Unknown code!");
+                        }
+                    }
+                };
+            }
+        };
+    }
+
 
     private abstract class ActionByDiscriptor {
         public ActionByDiscriptor(String descriptor) {
@@ -1474,6 +1510,13 @@ public class Instructions {
                         FieldRef fieldRef = (FieldRef) cp.getConstant(index);
                         JJvmField field = fieldRef.resolvedField();
                         JJvmClass cls = field.getJJvmClass();
+
+                        if (!cls.isInitStarted()) {
+                            frame.revertNextPC();
+                            cls.initClass(frame.getThread());
+                            return;
+                        }
+
                         if (!field.isStatic()) {
                             throw new RuntimeException("java.lang.IncompatibleClassChangeError");
                         }
@@ -1533,6 +1576,13 @@ public class Instructions {
                         FieldRef fieldRef = (FieldRef) cp.getConstant(index);
                         JJvmField field = fieldRef.resolvedField();
                         JJvmClass cls = field.getJJvmClass();
+
+                        if (!cls.isInitStarted()) {
+                            frame.revertNextPC();
+                            cls.initClass(frame.getThread());
+                            return;
+                        }
+
                         if (!field.isStatic()) {
                             throw new RuntimeException("java.lang.IncompatibleClassChangeError");
                         }
@@ -1736,40 +1786,74 @@ public class Instructions {
                 return new IndexInstruction() {
                     @Override
                     public void execute(Frame frame) {
-                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        JJvmClass currentClass = frame.getMethod().getJJvmClass();
+                        JJvmConstantPool cp = currentClass.getConstantPool();
                         MethodRef methodRef = (MethodRef) cp.getConstant(index);
-                        if (methodRef.getName().equals("println")) {
-                            OperandStack stack = frame.getOperandStack();
-                            switch (methodRef.getDescriptor()) {
-                                case "(Z)V":
-                                    System.out.println(stack.popInt() != 0);
-                                    break;
-                                case "(C)V":
-                                    System.out.println((char) stack.popInt());
-                                    break;
-                                case "(B)V":
-                                case "(S)V":
-                                case "(I)V":
-                                    System.out.println(stack.popInt());
-                                    break;
-                                case "(J)V":
-                                    System.out.println(stack.popLong());
-                                    break;
-                                case "(F)V":
-                                    System.out.println(stack.popFloat());
-                                    break;
-                                case "(D)V":
-                                    System.out.println(stack.popDouble());
-                                    break;
-                                default:
-                                    throw new RuntimeException("println: " + methodRef.getDescriptor());
-                            }
-                            stack.popRef();
+                        JJvmMethod resolvedMethod = methodRef.resolvedMethod();
+                        if (resolvedMethod.isStatic()) {
+                            throw new IncompatibleClassChangeError();
                         }
+
+                        JJvmObject ref = (JJvmObject) frame.getOperandStack().getRefFromTop(resolvedMethod.getArgSlotCount()-1);
+
+                        if (ref == null) {
+                            // hack System.out.println()
+                            if (methodRef.getName().equals("println")) {
+                                fakePrintln(frame.getOperandStack(), methodRef.getDescriptor());
+                                return;
+                            }
+
+                            throw new NullPointerException();
+                        }
+
+                        if (resolvedMethod.isProtected() &&
+                                resolvedMethod.getJJvmClass().isSuperClassOf(currentClass) &&
+                                !resolvedMethod.getJJvmClass().getPackageName().equals(currentClass.getPackageName()) &&
+                                ref.getJJvmClass() != currentClass &&
+                                !ref.getJJvmClass().isSubClassOf(currentClass)) {
+                            throw new IllegalAccessError();
+                        }
+
+                        JJvmMethod methodToBeInvoked = MethodRef.lookupMethodInClass(ref.getJJvmClass(), methodRef.getName(), methodRef.getDescriptor());
+
+                        if (methodToBeInvoked == null || methodToBeInvoked.isAbstract()) {
+                            throw new AbstractMethodError();
+                        }
+
+                        invokeMethod(frame, methodToBeInvoked);
+
                     }
                 }.setWide();
             }
         };
+    }
+
+    private void fakePrintln(OperandStack stack, String descriptor) {
+        switch (descriptor) {
+            case "(Z)V":
+                System.out.println(stack.popInt() != 0);
+                break;
+            case "(C)V":
+                System.out.println((char) stack.popInt());
+                break;
+            case "(B)V":
+            case "(S)V":
+            case "(I)V":
+                System.out.println(stack.popInt());
+                break;
+            case "(J)V":
+                System.out.println(stack.popLong());
+                break;
+            case "(F)V":
+                System.out.println(stack.popFloat());
+                break;
+            case "(D)V":
+                System.out.println(stack.popDouble());
+                break;
+            default:
+                throw new RuntimeException("println: " + descriptor);
+        }
+        stack.popRef();
     }
 
     /**
@@ -1783,20 +1867,164 @@ public class Instructions {
                 return new IndexInstruction() {
                     @Override
                     public void execute(Frame frame) {
-                        frame.getOperandStack().popRef();
+                        JJvmClass currentClass = frame.getMethod().getJJvmClass();
+                        JJvmConstantPool cp = currentClass.getConstantPool();
+                        MethodRef methodRef = (MethodRef) cp.getConstant(index);
+                        JJvmClass resolvedClass = methodRef.resolvedClass();
+                        JJvmMethod resolvedMethod = methodRef.resolvedMethod();
+
+                        if (resolvedMethod.getName().equals("<init>") && resolvedMethod.getJJvmClass() != resolvedClass) {
+                            throw new NoSuchMethodError();
+                        }
+
+                        if (resolvedMethod.isStatic()) {
+                            throw new IncompatibleClassChangeError();
+                        }
+
+                        JJvmObject ref = (JJvmObject) frame.getOperandStack().getRefFromTop(resolvedMethod.getArgSlotCount()-1);
+                        if (ref == null) {
+                            throw new NullPointerException();
+                        }
+
+                        if (resolvedMethod.isProtected() &&
+                                resolvedMethod.getJJvmClass().isSuperClassOf(currentClass) &&
+                                resolvedMethod.getJJvmClass().getPackageName().equals(currentClass.getPackageName()) &&
+                                ref.getJJvmClass() != currentClass &&
+                                !ref.getJJvmClass().isSubClassOf(currentClass)) {
+                            throw new IllegalAccessError();
+                        }
+
+                        JJvmMethod methodToBeInvoked = resolvedMethod;
+                        if (currentClass.isSuper() &&
+                                resolvedClass.isSubClassOf(currentClass) &&
+                                resolvedMethod.getName().equals("<init>")) {
+                            methodToBeInvoked = MethodRef.lookupMethodInClass(currentClass.getSuperClass(), methodRef.getName(), methodRef.getDescriptor());
+                        }
+
+                        if (methodToBeInvoked == null || methodToBeInvoked.isAbstract()) {
+                            throw new AbstractMethodError();
+                        }
+
+                        invokeMethod(frame, methodToBeInvoked);
                     }
                 }.setWide();
             }
         };
     }
 
+    /**
+     * 0xb8 invokestatic
+     */
+    @Bytecode(0xb8)
+    private InstructionGenerator invokeStatic(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        MethodRef methodRef = (MethodRef) frame.getMethod().getJJvmClass().getConstantPool().getConstant(index);
+                        JJvmMethod method = methodRef.resolvedMethod();
+
+                        JJvmClass cls = method.getJJvmClass();
+                        if (!cls.isInitStarted()) {
+                            frame.revertNextPC();
+                            cls.initClass(frame.getThread());
+                            return;
+                        }
+
+                        if (!method.isStatic()) {
+                            throw new IncompatibleClassChangeError();
+                        }
+                        invokeMethod(frame, method);
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+    /**
+     * 0xb9 invokeinterface
+     */
+    @Bytecode(0xb9)
+    private InstructionGenerator invokeInterface(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new Instruction() {
+                    int index;
+                    // byte count;
+                    // byte zero;
+
+                    @Override
+                    public void fetchOperands(BytecodeReader reader) {
+                        index = reader.readU2I();
+                        reader.readU1(); // count
+                        reader.readU1(); // must be zero
+                    }
+
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        InterfaceMethodRef methodRef = (InterfaceMethodRef) cp.getConstant(index);
+                        JJvmMethod resolvedMethod = methodRef.resolvedInterfaceMethod();
+
+                        if (resolvedMethod.isStatic() || resolvedMethod.isPrivate()) {
+                            throw new IncompatibleClassChangeError();
+                        }
+
+                        JJvmObject ref = (JJvmObject) frame.getOperandStack().getRefFromTop(resolvedMethod.getArgSlotCount()-1);
+
+                        if (ref == null) {
+                            throw new NullPointerException();
+                        }
+
+                        if (!ref.getJJvmClass().isImplements(methodRef.resolvedClass())) {
+                            throw new IncompatibleClassChangeError();
+                        }
+
+                        JJvmMethod methodToBeInvoked = MethodRef.lookupMethodInClass(ref.getJJvmClass(), methodRef.getName(), methodRef.getDescriptor());
+
+                        if (methodToBeInvoked == null || methodToBeInvoked.isAbstract()) {
+                            throw new AbstractMethodError();
+                        }
+
+                        if (!methodToBeInvoked.isPublic()) {
+                            throw new IllegalAccessError();
+                        }
+
+                        invokeMethod(frame, methodToBeInvoked);
+                    }
+                };
+            }
+        };
+    }
+
     /*
      * TODO:
-     * 0xb8 invokestatic
-     * 0xb9 invokeinterface
      * 0xba invokedynamic
      */
 
+    private void invokeMethod(Frame frame, JJvmMethod method) {
+        Thread thread = frame.getThread();
+        Frame newFrame = thread.buildFrame(method);
+        thread.pushFrame(newFrame);
+
+        int argSlotCount = method.getArgSlotCount();
+        if (argSlotCount > 0) {
+            for (int i = argSlotCount - 1; i >= 0; i--) {
+                newFrame.getLocalVars().setSlot(i, frame.getOperandStack().popSlot());
+            }
+        }
+
+        if (method.isNative()) {
+            if (method.getName().equals("registerNatives")) {
+                thread.popFrame();
+            } else {
+                throw new RuntimeException(String.format("native method: %s.%s%s", method.getJJvmClass().getName(), method.getName(), method.getDescriptor()));
+            }
+        }
+    }
 
     /**
      * 0xbb new
@@ -1812,6 +2040,12 @@ public class Instructions {
                         JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
                         ClassRef classRef = (ClassRef) cp.getConstant(index);
                         JJvmClass cls = classRef.resolvedClass();
+
+                        if (!cls.isInitStarted()) {
+                            frame.revertNextPC();
+                            cls.initClass(frame.getThread());
+                            return;
+                        }
 
                         if (cls.isInterface() || cls.isAbstract()) {
                             throw new RuntimeException("java.lang.InstantiationError");
@@ -2073,7 +2307,7 @@ abstract class NoOperandsInstruction implements Instruction {
 }
 
 abstract class InstructionGenerator {
-    private int code;
+    protected int code;
 
     InstructionGenerator(int code) {
         this.code = code;

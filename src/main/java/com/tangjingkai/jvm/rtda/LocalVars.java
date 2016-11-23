@@ -21,6 +21,10 @@ public class LocalVars {
         Arrays.setAll(slots, i -> new Slot());
     }
 
+    public void setSlot(int index, Slot slot) {
+        slots[index] = slot;
+    }
+
     public void setInt(int index, int val) {
         slots[index].setInt(val);
     }

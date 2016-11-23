@@ -36,4 +36,8 @@ public class Thread {
     public void setPC(int pc) {
         this.pc = pc;
     }
+
+    public boolean isStackEmpty() {
+        return stack.isEmpty();
+    }
 }

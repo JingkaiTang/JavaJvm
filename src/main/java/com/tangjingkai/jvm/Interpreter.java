@@ -17,32 +17,48 @@ public class Interpreter {
         thread.pushFrame(frame);
 
         try {
-            loop(thread, method.getCode());
+            loop(thread);
         } catch (Exception e) {
             e.printStackTrace();
-            catchErr(frame);
+            //catchErr(thread);
         }
     }
 
-    private void catchErr(Frame frame) {
-        System.out.println(frame.getLocalVars());
-        System.out.println(frame.getOperandStack());
+    private void catchErr(Thread thread) {
+        while (!thread.isStackEmpty()) {
+            Frame frame = thread.popFrame();
+            JJvmMethod method = frame.getMethod();
+            String className = method.getJJvmClass().getName();
+            System.out.println(String.format(">> pc:%04d %s.%s%s", frame.getNextPC(), className, method.getName(), method.getDescriptor()));
+        }
     }
 
-    private void loop(Thread thread, byte[] bytecode) {
-        Frame frame = thread.popFrame();
+    private void  logInst(Frame frame, Instruction inst) {
+        JJvmMethod method = frame.getMethod();
+        String className = method.getJJvmClass().getName();
+        int pc = frame.getThread().getPC();
+        System.out.println(String.format("%s.%s() #%02d", className, method.getName(), pc));
+    }
+
+    private void loop(Thread thread) {
         BytecodeReader reader = new BytecodeReader();
         while (true) {
+            Frame frame = thread.currentFrame();
             int pc = frame.getNextPC();
             thread.setPC(pc);
-            reader.reset(bytecode, pc);
+
+            reader.reset(frame.getMethod().getCode(), pc);
             byte opcode = reader.readU1();
             Instruction inst = Instructions.decode(opcode);
             inst.fetchOperands(reader);
             frame.setNextPC(reader.getPC());
 
-            System.out.println(String.format("PC:%2d inst:%s", pc, inst.getClass().getSimpleName()));
+            //logInst(frame, inst);
+
             inst.execute(frame);
+            if (thread.isStackEmpty()) {
+                break;
+            }
         }
     }
 }

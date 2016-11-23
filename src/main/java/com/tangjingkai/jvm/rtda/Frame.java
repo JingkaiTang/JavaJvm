@@ -42,4 +42,8 @@ public class Frame {
     public OperandStack getOperandStack() {
         return operandStack;
     }
+
+    public void revertNextPC() {
+        this.nextPC = this.thread.pc;
+    }
 }

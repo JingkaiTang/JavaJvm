@@ -34,4 +34,8 @@ public class Stack<E> {
         }
         return deque.peek();
     }
+
+    public boolean isEmpty() {
+        return deque.isEmpty();
+    }
 }

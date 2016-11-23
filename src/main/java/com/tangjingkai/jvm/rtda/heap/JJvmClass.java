@@ -1,6 +1,8 @@
 package com.tangjingkai.jvm.rtda.heap;
 
 import com.tangjingkai.jvm.classfile.ClassFile;
+import com.tangjingkai.jvm.rtda.Frame;
+import com.tangjingkai.jvm.rtda.Thread;
 
 /**
  * Created by totran on 11/19/16.
@@ -19,10 +21,7 @@ public class JJvmClass {
     int instanceSlotCount;
     int staticSlotCount;
     JJvmSlots staticVars;
-
-    public JJvmConstantPool getConstantPool() {
-        return constantPool;
-    }
+    boolean initStarted;
 
     public JJvmClass(ClassFile cf) {
         this.accessFlags = Short.toUnsignedInt(cf.getAccessFlags());
@@ -33,6 +32,19 @@ public class JJvmClass {
         this.constantPool = new JJvmConstantPool(this, cf.getConstantPool());
         this.fields = JJvmField.extractFileds(this, cf.getFields());
         this.methods = JJvmMethod.extractMethods(this, cf.getMethods());
+        this.initStarted = false;
+    }
+
+    public boolean isInitStarted() {
+        return initStarted;
+    }
+
+    public void startInit() {
+        this.initStarted = true;
+    }
+
+    public JJvmConstantPool getConstantPool() {
+        return constantPool;
     }
 
     public JJvmObject newObject() {
@@ -79,7 +91,7 @@ public class JJvmClass {
         return isPublic() || getPackageName().equals(otherClass.getPackageName());
     }
 
-    String getPackageName() {
+    public String getPackageName() {
         int i = name.lastIndexOf('/');
         if (i >= 0) {
             return name.substring(0, i);
@@ -108,7 +120,7 @@ public class JJvmClass {
         }
     }
 
-    private boolean isImplements(JJvmClass iface) {
+    public boolean isImplements(JJvmClass iface) {
         for (JJvmClass c = this; c != null; c = c.superClass) {
             if (c.interfaces == null) {
                 continue;
@@ -152,5 +164,43 @@ public class JJvmClass {
         }
 
         return null;
+    }
+
+    public boolean isSuperClassOf(JJvmClass subClass) {
+        return subClass.isSubClassOf(this);
+    }
+
+    public JJvmClass getSuperClass() {
+        return superClass;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void initClass(Thread thread) {
+        startInit();
+        scheduleClinit(thread);
+        initSuperClass(thread);
+    }
+
+    private void initSuperClass(Thread thread) {
+        if (!isInterface()) {
+            if (superClass != null && !superClass.isInitStarted()) {
+                superClass.initClass(thread);
+            }
+        }
+    }
+
+    private void scheduleClinit(Thread thread) {
+        JJvmMethod clinit = getClinitMethod();
+        if (clinit != null) {
+            Frame frame = thread.buildFrame(clinit);
+            thread.pushFrame(frame);
+        }
+    }
+
+    public JJvmMethod getClinitMethod() {
+        return getStaticMethod("<clinit>", "()V");
     }
 }

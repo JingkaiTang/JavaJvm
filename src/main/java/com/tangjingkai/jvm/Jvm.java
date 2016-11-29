@@ -37,7 +37,7 @@ public class Jvm {
         if (mainMethod == null) {
             System.out.println(String.format("Main method not found in class %s", cmd.clsFile));
         } else {
-            new Interpreter().interpret(mainMethod);
+            new Interpreter().interpret(mainMethod, cmd.args);
         }
     }
 

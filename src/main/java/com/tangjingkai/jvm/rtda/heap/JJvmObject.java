@@ -7,14 +7,6 @@ public class JJvmObject {
     JJvmClass cls;
     Object data;
 
-    public JJvmClass getJJvmClass() {
-        return cls;
-    }
-
-    public JJvmSlots getFields() {
-        return (JJvmSlots) data;
-    }
-
     public JJvmObject(JJvmClass jjvmClass) {
         this.cls = jjvmClass;
         this.data = new JJvmSlots(jjvmClass.instanceSlotCount);
@@ -23,6 +15,14 @@ public class JJvmObject {
     public JJvmObject(JJvmClass jjvmClass, Object arr) {
         this.cls = jjvmClass;
         this.data = arr;
+    }
+
+    public JJvmClass getJJvmClass() {
+        return cls;
+    }
+
+    public JJvmSlots getFields() {
+        return (JJvmSlots) data;
     }
 
     public boolean isInstanceOf(JJvmClass jjvmClass) {
@@ -81,5 +81,15 @@ public class JJvmObject {
         } else {
             throw new RuntimeException("Not array!");
         }
+    }
+
+    public void setRefVar(String name, String descriptor, JJvmObject ref) {
+        JJvmField field = cls.getField(name, descriptor, false);
+        ((JJvmSlots) data).setRef(field.slotId, ref);
+    }
+
+    public JJvmObject getRefVar(String name, String descriptor) {
+        JJvmField field = cls.getField(name, descriptor, false);
+        return (JJvmObject) ((JJvmSlots) data).getRef(field.slotId);
     }
 }

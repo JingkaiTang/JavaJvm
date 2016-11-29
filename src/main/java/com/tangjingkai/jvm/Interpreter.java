@@ -5,23 +5,35 @@ import com.tangjingkai.jvm.instructions.Instruction;
 import com.tangjingkai.jvm.instructions.Instructions;
 import com.tangjingkai.jvm.rtda.Frame;
 import com.tangjingkai.jvm.rtda.Thread;
-import com.tangjingkai.jvm.rtda.heap.JJvmMethod;
+import com.tangjingkai.jvm.rtda.heap.*;
 
 /**
  * Created by totran on 11/17/16.
  */
 public class Interpreter {
-    public void interpret(JJvmMethod method) {
+    public void interpret(JJvmMethod method, String[] args) {
         Thread thread = new Thread();
         Frame frame = thread.buildFrame(method);
         thread.pushFrame(frame);
 
         try {
+            JJvmObject jArgs = createArgsArray(method.getJJvmClass().getClassLoader(), args);
+            frame.getLocalVars().setRef(0, jArgs);
             loop(thread);
         } catch (Exception e) {
             e.printStackTrace();
             //catchErr(thread);
         }
+    }
+
+    private JJvmObject createArgsArray(JJvmClassLoader classLoader, String[] args) {
+        JJvmClass stringClass = classLoader.loadClass("java/lang/String");
+        JJvmObject argsArr = stringClass.getArrayClass().newArray(args.length);
+        JJvmObject[] jArgs = argsArr.getRefs();
+        for (int i = 0; i < jArgs.length; i++) {
+            jArgs[i] = InternedStrings.getString(classLoader, args[i]);
+        }
+        return argsArr;
     }
 
     private void catchErr(Thread thread) {

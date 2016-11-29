@@ -90,7 +90,10 @@ public class JJvmClassLoader {
                     vars.setDouble(slotId, (Double) cp.getConstant(cpIndex));
                     break;
                 case "Ljava/lang/String;":
-                    throw new RuntimeException("Unimplemented!");
+                    String str = (String) cp.getConstant(cpIndex);
+                    JJvmObject jStr = InternedStrings.getString(cls.getClassLoader(), str);
+                    vars.setRef(slotId, jStr);
+                    break;
             }
         }
     }

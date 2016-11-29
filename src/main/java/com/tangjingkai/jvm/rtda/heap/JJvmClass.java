@@ -361,4 +361,17 @@ public class JJvmClass {
     public boolean isJioSerializable() {
         return name.equals("java/lang/Serializable");
     }
+
+    public JJvmField getField(String name, String descriptor, boolean isStatic) {
+        for (JJvmClass c = this; c != null; c = c.superClass) {
+            for (JJvmField field: c.fields) {
+                if (field.isStatic() == isStatic &&
+                        field.name.equals(name) &&
+                        field.descriptor.equals(descriptor)) {
+                    return field;
+                }
+            }
+        }
+        return null;
+    }
 }

@@ -299,16 +299,18 @@ public class Instructions {
                     @Override
                     public void execute(Frame frame) {
                         OperandStack stack = frame.getOperandStack();
+                        JJvmClass cls = frame.getMethod().getJJvmClass();
                         JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
                         Object c = cp.getConstant(index);
                         if (c instanceof Integer) {
                             stack.pushInt((Integer) c);
                         } else if (c instanceof Float) {
                             stack.pushFloat((Float) c);
-                            //} else if (c instanceof String) {
-                            // TODO: string
-                            //} else if (c instanceof ClassRef) {
+                        } else if (c instanceof String) {
+                            JJvmObject internedStr = InternedStrings.getString(cls.getClassLoader(), (String)c);
+                            stack.pushRef(internedStr);
                             // TODO: ClassRef
+                            //} else if (c instanceof ClassRef) {
                         } else {
                             throw new RuntimeException("Unimplemented ldc!");
                         }
@@ -1999,6 +2001,9 @@ public class Instructions {
                 break;
             case "(D)V":
                 System.out.println(stack.popDouble());
+                break;
+            case "(Ljava/lang/String;)V":
+                System.out.println(InternedStrings.unwrapString((JJvmObject) stack.popRef()));
                 break;
             default:
                 throw new RuntimeException("println: " + descriptor);

@@ -450,8 +450,7 @@ public class Instructions {
         };
     }
 
-    /*
-     * TODO:
+    /**
      * 0x2e iaload
      * 0x2f laload
      * 0x30 faload
@@ -461,6 +460,65 @@ public class Instructions {
      * 0x34 caload
      * 0x35 saload
      */
+    @BytecodeRange(lower = 0x2e, upper = 0x35)
+    private InstructionGenerator taload(int code) {
+        TypeLeader tl = new TypeLeaderSelector.Builder()
+                .set(TypeLeader.I, 0x2e)
+                .set(TypeLeader.L, 0x2f)
+                .set(TypeLeader.F, 0x30)
+                .set(TypeLeader.D, 0x31)
+                .set(TypeLeader.A, 0x32)
+                .set(TypeLeader.B, 0x33)
+                .set(TypeLeader.C, 0x34)
+                .set(TypeLeader.S, 0x35)
+                .build(code)
+                .typeLeader;
+        return new CachedInstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new NoOperandsInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        OperandStack stack = frame.getOperandStack();
+                        int index = stack.popInt();
+                        JJvmObject arr = (JJvmObject) stack.popRef();
+                        if (arr == null) {
+                            throw new NullPointerException();
+                        }
+                        if (index < 0 || index >= arr.getArrayLength()) {
+                            throw new ArrayIndexOutOfBoundsException();
+                        }
+                        switch (tl) {
+                            case I:
+                                stack.pushInt(arr.getInts()[index]);
+                                break;
+                            case L:
+                                stack.pushLong(arr.getLongs()[index]);
+                                break;
+                            case F:
+                                stack.pushFloat(arr.getFloats()[index]);
+                                break;
+                            case D:
+                                stack.pushDouble(arr.getDoubles()[index]);
+                                break;
+                            case A:
+                                stack.pushRef(arr.getRefs()[index]);
+                                break;
+                            case B:
+                                stack.pushInt(arr.getBytes()[index]);
+                                break;
+                            case C:
+                                stack.pushInt(arr.getChars()[index]);
+                                break;
+                            case S:
+                                stack.pushInt(arr.getShorts()[index]);
+                                break;
+                        }
+                    }
+                };
+            }
+        };
+    }
 
     /**
      * 0x36 istore
@@ -562,8 +620,7 @@ public class Instructions {
         };
     }
 
-    /*
-     * TODO:
+    /**
      * 0x4f iastore
      * 0x50 lastore
      * 0x51 fastore
@@ -573,6 +630,99 @@ public class Instructions {
      * 0x55 castore
      * 0x56 sastore
      */
+    @BytecodeRange(lower = 0x4f, upper = 0x56)
+    private InstructionGenerator tastore(int code) {
+        TypeLeader tl = new TypeLeaderSelector.Builder()
+                .set(TypeLeader.I, 0x4f)
+                .set(TypeLeader.L, 0x50)
+                .set(TypeLeader.F, 0x51)
+                .set(TypeLeader.D, 0x52)
+                .set(TypeLeader.A, 0x53)
+                .set(TypeLeader.B, 0x54)
+                .set(TypeLeader.C, 0x55)
+                .set(TypeLeader.S, 0x56)
+                .build(code)
+                .typeLeader;
+        return new CachedInstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new NoOperandsInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        OperandStack stack = frame.getOperandStack();
+                        int i_val = 0;
+                        long l_val = 0;
+                        float f_val = 0;
+                        double d_val = 0;
+                        JJvmObject a_val = null;
+                        byte b_val = 0;
+                        char c_val = 0;
+                        short s_val = 0;
+                        switch (tl) {
+                            case I:
+                                i_val = stack.popInt();
+                                break;
+                            case L:
+                                l_val = stack.popLong();
+                                break;
+                            case F:
+                                f_val = stack.popFloat();
+                                break;
+                            case D:
+                                d_val = stack.popDouble();
+                                break;
+                            case A:
+                                a_val = (JJvmObject) stack.popRef();
+                                break;
+                            case B:
+                                b_val = (byte) stack.popInt();
+                                break;
+                            case C:
+                                c_val = (char) stack.popInt();
+                                break;
+                            case S:
+                                s_val = (short) stack.popInt();
+                                break;
+                        }
+                        int index = stack.popInt();
+                        JJvmObject arr = (JJvmObject) stack.popRef();
+                        if (arr == null) {
+                            throw new NullPointerException();
+                        }
+                        if (index < 0 || index >= arr.getArrayLength()) {
+                            throw new ArrayIndexOutOfBoundsException();
+                        }
+                        switch (tl) {
+                            case I:
+                                arr.getInts()[index] = i_val;
+                                break;
+                            case L:
+                                arr.getLongs()[index] = l_val;
+                                break;
+                            case F:
+                                arr.getFloats()[index] = f_val;
+                                break;
+                            case D:
+                                arr.getDoubles()[index] = d_val;
+                                break;
+                            case A:
+                                arr.getRefs()[index] = a_val;
+                                break;
+                            case B:
+                                arr.getBytes()[index] = b_val;
+                                break;
+                            case C:
+                                arr.getChars()[index] = c_val;
+                                break;
+                            case S:
+                                arr.getShorts()[index] = s_val;
+                                break;
+                        }
+                    }
+                };
+            }
+        };
+    }
 
 
     /**
@@ -1794,7 +1944,7 @@ public class Instructions {
                             throw new IncompatibleClassChangeError();
                         }
 
-                        JJvmObject ref = (JJvmObject) frame.getOperandStack().getRefFromTop(resolvedMethod.getArgSlotCount()-1);
+                        JJvmObject ref = (JJvmObject) frame.getOperandStack().getRefFromTop(resolvedMethod.getArgSlotCount() - 1);
 
                         if (ref == null) {
                             // hack System.out.println()
@@ -1881,7 +2031,7 @@ public class Instructions {
                             throw new IncompatibleClassChangeError();
                         }
 
-                        JJvmObject ref = (JJvmObject) frame.getOperandStack().getRefFromTop(resolvedMethod.getArgSlotCount()-1);
+                        JJvmObject ref = (JJvmObject) frame.getOperandStack().getRefFromTop(resolvedMethod.getArgSlotCount() - 1);
                         if (ref == null) {
                             throw new NullPointerException();
                         }
@@ -1973,7 +2123,7 @@ public class Instructions {
                             throw new IncompatibleClassChangeError();
                         }
 
-                        JJvmObject ref = (JJvmObject) frame.getOperandStack().getRefFromTop(resolvedMethod.getArgSlotCount()-1);
+                        JJvmObject ref = (JJvmObject) frame.getOperandStack().getRefFromTop(resolvedMethod.getArgSlotCount() - 1);
 
                         if (ref == null) {
                             throw new NullPointerException();
@@ -2059,11 +2209,129 @@ public class Instructions {
         };
     }
 
+    /**
+     * 0xbc newarray
+     */
+    @Bytecode(0xbc)
+    private InstructionGenerator newarray(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new Instruction() {
+                    byte atype;
+
+                    @Override
+                    public void fetchOperands(BytecodeReader reader) {
+                        atype = reader.readU1();
+                    }
+
+                    @Override
+                    public void execute(Frame frame) {
+                        OperandStack stack = frame.getOperandStack();
+                        int count = stack.popInt();
+                        if (count < 0) {
+                            throw new NegativeArraySizeException();
+                        }
+                        JJvmClassLoader loader = frame.getMethod().getJJvmClass().getClassLoader();
+                        JJvmClass arrClass = getPrimitiveArrayClass(loader, atype);
+                        JJvmObject arr = arrClass.newArray(count);
+                        stack.pushRef(arr);
+                    }
+                };
+            }
+        };
+    }
+
+    private JJvmClass getPrimitiveArrayClass(JJvmClassLoader loader, byte atype) {
+        switch (atype) {
+            case ATYPE.BOOLEAN:
+                return loader.loadClass("[Z");
+            case ATYPE.BYTE:
+                return loader.loadClass("[B");
+            case ATYPE.CHAR:
+                return loader.loadClass("[C");
+            case ATYPE.DOUBLE:
+                return loader.loadClass("[D");
+            case ATYPE.FLOAT:
+                return loader.loadClass("[F");
+            case ATYPE.INT:
+                return loader.loadClass("[I");
+            case ATYPE.LONG:
+                return loader.loadClass("[J");
+            case ATYPE.SHORT:
+                return loader.loadClass("[S");
+            default:
+                throw new RuntimeException("Invalid atype!");
+        }
+    }
+
+    private interface ATYPE {
+        byte BOOLEAN = 4;
+        byte CHAR = 5;
+        byte FLOAT = 6;
+        byte DOUBLE = 7;
+        byte BYTE = 8;
+        byte SHORT = 9;
+        byte INT = 10;
+        byte LONG = 11;
+    }
+
+    /**
+     * 0xbd anewarray
+     */
+    @Bytecode(0xbd)
+    private InstructionGenerator anewarray(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new IndexInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        ClassRef classRef = (ClassRef) cp.getConstant(index);
+                        JJvmClass componentClass = classRef.resolvedClass();
+
+                        OperandStack stack = frame.getOperandStack();
+                        int count = stack.popInt();
+                        if (count < 0) {
+                            throw new NegativeArraySizeException();
+                        }
+
+                        JJvmClass arrClass = componentClass.getArrayClass();
+                        JJvmObject arr = arrClass.newArray(count);
+                        stack.pushRef(arr);
+                    }
+                }.setWide();
+            }
+        };
+    }
+
+    /**
+     * 0xbe arraylength
+     */
+    @Bytecode(0xbe)
+    private InstructionGenerator arrayLength(int code) {
+        return new CachedInstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new NoOperandsInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        OperandStack stack = frame.getOperandStack();
+                        JJvmObject arrRef = (JJvmObject) stack.popRef();
+                        if (arrRef == null) {
+                            throw new NullPointerException();
+                        }
+                        int arrLen = arrRef.getArrayLength();
+                        stack.pushInt(arrLen);
+                    }
+                };
+            }
+        };
+    }
+
     /*
      * TODO:
-     * 0xbc newarray
-     * 0xbd anewarray
-     * 0xbe arraylength
      * 0xbf athrow
      */
 
@@ -2167,10 +2435,59 @@ public class Instructions {
         };
     }
 
-    /*
-     * TODO:
+    /**
      * 0xc5 multianewarray
      */
+    @Bytecode(0xc5)
+    private InstructionGenerator multiANewArray(int code) {
+        return new InstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new Instruction() {
+                    short index;
+                    int dimensions;
+                    @Override
+                    public void fetchOperands(BytecodeReader reader) {
+                        index = reader.readU2();
+                        dimensions = reader.readU1I();
+                    }
+
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmConstantPool cp = frame.getMethod().getJJvmClass().getConstantPool();
+                        ClassRef classRef = (ClassRef) cp.getConstant(index);
+                        JJvmClass arrClass = classRef.resolvedClass();
+                        OperandStack stack = frame.getOperandStack();
+                        int[] counts = popAndCheckCounts(stack);
+                        JJvmObject arr = newMultiDimensionalArray(counts, arrClass);
+                        stack.pushRef(arr);
+                    }
+
+                    private JJvmObject newMultiDimensionalArray(int[] counts, JJvmClass arrClass) {
+                        JJvmObject arr = arrClass.newArray(counts[0]);
+                        if (counts.length > 1) {
+                            JJvmObject[] arrs = arr.getRefs();
+                            for (int i = 0; i < arrs.length; i++) {
+                                arrs[i] = newMultiDimensionalArray(Arrays.copyOfRange(counts, 1, counts.length), arrClass.getComponentClass());
+                            }
+                        }
+                        return arr;
+                    }
+
+                    private int[] popAndCheckCounts(OperandStack stack) {
+                        int[] counts = new int[dimensions];
+                        for (int i = dimensions-1; i >= 0; i--) {
+                            counts[i] = stack.popInt();
+                            if (counts[i] < 0) {
+                                throw new NegativeArraySizeException();
+                            }
+                        }
+                        return counts;
+                    }
+                };
+            }
+        };
+    }
 
     /**
      * 0xc6 ifnull

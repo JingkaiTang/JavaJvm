@@ -22,7 +22,16 @@ public class JJvmClassLoader {
         if (classMap.containsKey(name)) {
             return classMap.get(name);
         }
+        if (name.charAt(0) == '[') {
+            return loadArrayClass(name);
+        }
         return loadNonArrayClass(name);
+    }
+
+    private JJvmClass loadArrayClass(String name) {
+        JJvmClass cls = JJvmClass.loadArrayClass(this, name);
+        classMap.put(name, cls);
+        return cls;
     }
 
     private JJvmClass loadNonArrayClass(String name) {

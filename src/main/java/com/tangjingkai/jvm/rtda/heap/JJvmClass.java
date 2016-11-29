@@ -4,6 +4,9 @@ import com.tangjingkai.jvm.classfile.ClassFile;
 import com.tangjingkai.jvm.rtda.Frame;
 import com.tangjingkai.jvm.rtda.Thread;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Created by totran on 11/19/16.
  */
@@ -21,6 +24,11 @@ public class JJvmClass {
     int instanceSlotCount;
     int staticSlotCount;
     JJvmSlots staticVars;
+
+    public JJvmClassLoader getClassLoader() {
+        return loader;
+    }
+
     boolean initStarted;
 
     public JJvmClass(ClassFile cf) {
@@ -33,6 +41,54 @@ public class JJvmClass {
         this.fields = JJvmField.extractFileds(this, cf.getFields());
         this.methods = JJvmMethod.extractMethods(this, cf.getMethods());
         this.initStarted = false;
+    }
+
+    public JJvmClass() {
+
+    }
+
+    public static JJvmClass loadArrayClass(JJvmClassLoader loader, String name) {
+        JJvmClass jc = new JJvmClass();
+        jc.accessFlags = JJvmAccessFlag.ACC_PUBLIC;
+        jc.name = name;
+        jc.loader = loader;
+        jc.initStarted = true;
+        jc.superClass = loader.loadClass("java/lang/Object");
+        jc.interfaces = new JJvmClass[]{
+                loader.loadClass("java/lang/Cloneable"),
+                loader.loadClass("java/io/Serializable"),
+        };
+        return jc;
+    }
+
+    public JJvmObject newArray(int count) {
+        if (!isArray()) {
+            throw new RuntimeException("Not array class: " + name);
+        }
+        switch (name) {
+            case "[Z":
+                return new JJvmObject(this, new byte[count]);
+            case "[B":
+                return new JJvmObject(this, new byte[count]);
+            case "[C":
+                return new JJvmObject(this, new char[count]);
+            case "[S":
+                return new JJvmObject(this, new short[count]);
+            case "[I":
+                return new JJvmObject(this, new int[count]);
+            case "[J":
+                return new JJvmObject(this, new long[count]);
+            case "[F":
+                return new JJvmObject(this, new float[count]);
+            case "[D":
+                return new JJvmObject(this, new double[count]);
+            default:
+                return new JJvmObject(this, new JJvmObject[count]);
+        }
+    }
+
+    private boolean isArray() {
+        return name.charAt(0) == '[';
     }
 
     public boolean isInitStarted() {
@@ -113,11 +169,41 @@ public class JJvmClass {
             return true;
         }
 
-        if (isInterface()) {
-            return cls.isImplements(this);
+        if (cls.isArray()) {
+            if (this.isArray()) {
+                JJvmClass sc = cls.getComponentClass();
+                JJvmClass tc = this.getComponentClass();
+                return sc == tc || tc.isAssignableFrom(sc);
+            } else {
+                if (this.isInterface()) {
+                    return this.isJlCloneable() || this.isJioSerializable();
+                } else {
+                    return this.isJlObejct();
+                }
+            }
         } else {
-            return cls.isSubClassOf(this);
+            if (cls.isInterface()) {
+                if (this.isInterface()) {
+                    return this.isSuperInterfaceOf(cls);
+                } else {
+                    return this.isJlObejct();
+                }
+            } else {
+                if (this.isInterface()) {
+                    return cls.isImplements(this);
+                } else {
+                    return cls.isSubClassOf(this);
+                }
+            }
         }
+    }
+
+    private boolean isSuperInterfaceOf(JJvmClass cls) {
+        return cls.isSubClassOf(this);
+    }
+
+    private boolean isJlObejct() {
+        return name.equals("java/lang/Object");
     }
 
     public boolean isImplements(JJvmClass iface) {
@@ -202,5 +288,77 @@ public class JJvmClass {
 
     public JJvmMethod getClinitMethod() {
         return getStaticMethod("<clinit>", "()V");
+    }
+
+    public JJvmClass getArrayClass() {
+        String arrayClassName = getArrayClassName(name);
+        return loader.loadClass(arrayClassName);
+    }
+
+    private static String getArrayClassName(String className) {
+        return "[" + toDescriptor(className);
+    }
+
+    private static String toDescriptor(String className) {
+        if (className.charAt(0) == '[') {
+            return className;
+        }
+        if (primitiveTypes.containsKey(className)) {
+            return primitiveTypes.get(className);
+        }
+        return "L" + className + ";";
+    }
+
+    private static final Map<String, String> primitiveTypes = new HashMap<>();
+
+    static {
+        primitiveTypes.put("void", "V");
+        primitiveTypes.put("boolean", "Z");
+        primitiveTypes.put("byte", "B");
+        primitiveTypes.put("short", "S");
+        primitiveTypes.put("int", "I");
+        primitiveTypes.put("long", "J");
+        primitiveTypes.put("char", "C");
+        primitiveTypes.put("float", "F");
+        primitiveTypes.put("double", "D");
+    }
+
+    public JJvmClass getComponentClass() {
+        String componentClassName = getComponentClassName();
+        return loader.loadClass(componentClassName);
+    }
+
+    public String getComponentClassName() {
+        if (name.charAt(0) == '[') {
+            String componentTypeDescriptor = name.substring(1);
+            return toClassName(componentTypeDescriptor);
+        }
+        throw new RuntimeException("Not array: " + name);
+    }
+
+    private String toClassName(String descriptor) {
+        if (descriptor.charAt(0) == '[') {
+            return descriptor;
+        }
+
+        if (descriptor.charAt(0) == 'L') {
+            return descriptor.substring(1, descriptor.length() - 1);
+        }
+
+        for (Map.Entry<String, String> entry : primitiveTypes.entrySet()) {
+            if (entry.getValue().equals(descriptor)) {
+                return entry.getKey();
+            }
+        }
+
+        throw new RuntimeException("Invalid descriptor: " + descriptor);
+    }
+
+    public boolean isJlCloneable() {
+        return name.equals("java/lang/Cloneable");
+    }
+
+    public boolean isJioSerializable() {
+        return name.equals("java/lang/Serializable");
     }
 }

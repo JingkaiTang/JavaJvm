@@ -189,5 +189,15 @@ public class NativeMethods {
                 }
         );
 
+        // java.lang.Object::hashCode
+        register(
+                "java/lang/Object",
+                "hashCode",
+                "()I",
+                frame -> {
+                    JJvmObject thisRef = (JJvmObject) frame.getLocalVars().getThis();
+                    frame.getOperandStack().pushInt(thisRef.hashCode());
+                }
+        );
     }
 }

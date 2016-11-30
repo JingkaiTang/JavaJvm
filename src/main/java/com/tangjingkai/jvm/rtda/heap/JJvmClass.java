@@ -391,4 +391,31 @@ public class JJvmClass {
     public boolean isPrimitive() {
         return primitiveTypes.containsKey(name);
     }
+
+    public JJvmObject getRefVar(String fieldName, String fieldDescriptor) {
+        JJvmField field = getField(fieldName, fieldDescriptor, true);
+        return (JJvmObject) staticVars.getRef(field.slotId);
+    }
+
+    public void setRefVar(String fieldName, String fieldDescriptor, JJvmObject ref) {
+        JJvmField field = getField(fieldName, fieldDescriptor, true);
+        staticVars.setRef(field.slotId, ref);
+    }
+
+    public JJvmMethod getInstanceMethod(String name, String descriptor) {
+        return getMethod(name, descriptor, false);
+    }
+
+    private JJvmMethod getMethod(String name, String descriptor, boolean isStatic) {
+        for (JJvmClass c = this; c != null; c = c.superClass) {
+            for (JJvmMethod method : c.methods) {
+                if (method.isStatic() == isStatic
+                        && method.name.equals(name)
+                        && method.descriptor.equals(descriptor)) {
+                    return method;
+                }
+            }
+        }
+        return null;
+    }
 }

@@ -2173,7 +2173,7 @@ public class Instructions {
      * 0xba invokedynamic
      */
 
-    private void invokeMethod(Frame frame, JJvmMethod method) {
+    public static void invokeMethod(Frame frame, JJvmMethod method) {
         Thread thread = frame.getThread();
         Frame newFrame = thread.buildFrame(method);
         thread.pushFrame(newFrame);

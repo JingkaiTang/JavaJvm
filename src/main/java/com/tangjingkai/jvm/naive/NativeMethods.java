@@ -1,11 +1,10 @@
 package com.tangjingkai.jvm.naive;
 
+import com.tangjingkai.jvm.instructions.Instructions;
 import com.tangjingkai.jvm.rtda.Frame;
 import com.tangjingkai.jvm.rtda.LocalVars;
-import com.tangjingkai.jvm.rtda.heap.InternedStrings;
-import com.tangjingkai.jvm.rtda.heap.JJvmClass;
-import com.tangjingkai.jvm.rtda.heap.JJvmClassLoader;
-import com.tangjingkai.jvm.rtda.heap.JJvmObject;
+import com.tangjingkai.jvm.rtda.OperandStack;
+import com.tangjingkai.jvm.rtda.heap.*;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -212,6 +211,28 @@ public class NativeMethods {
                         throw new RuntimeException(new CloneNotSupportedException());
                     }
                     frame.getOperandStack().pushRef(thisRef.clone());
+                }
+        );
+
+        // sun.misc.VM::initialize
+        register(
+                "sun/misc/VM",
+                "initialize",
+                "()V",
+                frame -> {
+                    JJvmClass vmClass = frame.getMethod().getJJvmClass();
+                    JJvmObject savedProps = vmClass.getRefVar("savedProps", "Ljava/util/Properties;");
+                    JJvmObject key = InternedStrings.getString(vmClass.getClassLoader(), "foo");
+                    JJvmObject val = InternedStrings.getString(vmClass.getClassLoader(), "bar");
+
+                    OperandStack stack = frame.getOperandStack();
+                    stack.pushRef(savedProps);
+                    stack.pushRef(key);
+                    stack.pushRef(val);
+
+                    JJvmClass propsClass = vmClass.getClassLoader().loadClass("java/util/Properties");
+                    JJvmMethod setPropMethod = propsClass.getInstanceMethod("setProperty", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;");
+                    Instructions.invokeMethod(frame, setPropMethod);
                 }
         );
     }

@@ -26,4 +26,14 @@ public class InternedStrings {
     public static String unwrapString(JJvmObject jString) {
         return new String(jString.getRefVar("value", "[C").getChars());
     }
+
+    public static JJvmObject getInterned(JJvmObject jString) {
+        String str = unwrapString(jString);
+        if (data.containsKey(str)) {
+            return data.get(str);
+        }
+
+        data.put(str, jString);
+        return jString;
+    }
 }

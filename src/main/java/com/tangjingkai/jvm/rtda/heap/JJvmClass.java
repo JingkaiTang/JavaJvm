@@ -96,7 +96,7 @@ public class JJvmClass {
         }
     }
 
-    private boolean isArray() {
+    public boolean isArray() {
         return name.charAt(0) == '[';
     }
 
@@ -386,5 +386,9 @@ public class JJvmClass {
 
     public String getJavaName() {
         return name.replace("/", ".");
+    }
+
+    public boolean isPrimitive() {
+        return primitiveTypes.containsKey(name);
     }
 }

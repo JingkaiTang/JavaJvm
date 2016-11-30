@@ -77,7 +77,6 @@ public class JJvmClassLoader {
         byte[] data = readClass(name);
         JJvmClass cls = defineClass(data);
         link(cls);
-        System.out.println(String.format("Loaded class %s!", name));
         return cls;
     }
 

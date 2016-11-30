@@ -887,8 +887,17 @@ public class Instructions {
                                 stack.pushInt(iop(op, i1, i2));
                                 break;
                             case L:
-                                long l2 = stack.popLong();
-                                long l1 = stack.popLong();
+                                long l1, l2;
+                                switch (op) {
+                                    case SHL:
+                                    case SHR:
+                                    case USHR:
+                                        l1 = stack.popInt();
+                                        break;
+                                    default:
+                                        l1 = stack.popLong();
+                                }
+                                l2 = stack.popLong();
                                 stack.pushLong(lop(op, l1, l2));
                                 break;
                             case F:
@@ -1156,7 +1165,7 @@ public class Instructions {
                                 val = stack.popInt();
                                 break;
                             case L:
-                                val = stack.popDouble();
+                                val = stack.popLong();
                                 break;
                             case F:
                                 val = stack.popFloat();
@@ -1167,7 +1176,7 @@ public class Instructions {
                             default:
                                 throw new RuntimeException("Unsupported TypeLeader!");
                         }
-                        switch (tx) {
+                        switch (ty) {
                             case I:
                                 stack.pushInt(val.intValue());
                                 break;

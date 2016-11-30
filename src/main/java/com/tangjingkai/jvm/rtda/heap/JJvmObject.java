@@ -21,9 +21,14 @@ public class JJvmObject {
         this.data = new JJvmSlots(jjvmClass.instanceSlotCount);
     }
 
+    public Object getData() {
+        return data;
+    }
+
     public JJvmObject(JJvmClass jjvmClass, Object arr) {
         this.cls = jjvmClass;
         this.data = arr;
+
     }
 
     public JJvmClass getJJvmClass() {

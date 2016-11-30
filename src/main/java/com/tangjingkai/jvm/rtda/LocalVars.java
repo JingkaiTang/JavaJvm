@@ -5,9 +5,9 @@ import java.util.Arrays;
 /**
  * Created by totran on 11/16/16.
  */
-public class LocalVars {
+public class LocalVars implements Cloneable {
 
-    Slot[] slots;
+    protected Slot[] slots;
 
     @Override
     public String toString() {
@@ -15,6 +15,8 @@ public class LocalVars {
                 "slots=" + Arrays.toString(slots) +
                 '}';
     }
+
+    protected LocalVars() {}
 
     public LocalVars(int maxLocals) {
         slots = new Slot[maxLocals];

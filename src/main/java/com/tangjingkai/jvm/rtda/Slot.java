@@ -3,7 +3,7 @@ package com.tangjingkai.jvm.rtda;
 /**
  * Created by totran on 11/16/16.
  */
-public class Slot {
+public class Slot implements Cloneable {
     int num;
     Object ref;
 
@@ -58,5 +58,10 @@ public class Slot {
     public Slot setFloat(float val) {
         setInt(Float.floatToIntBits(val));
         return this;
+    }
+
+    @Override
+    public Slot clone() {
+        return new Slot(this);
     }
 }

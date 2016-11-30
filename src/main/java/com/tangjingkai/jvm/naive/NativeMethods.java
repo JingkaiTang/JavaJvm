@@ -199,5 +199,20 @@ public class NativeMethods {
                     frame.getOperandStack().pushInt(thisRef.hashCode());
                 }
         );
+
+        // java.lang.Object::clone
+        register(
+                "java/lang/Object",
+                "clone",
+                "()Ljava/lang/Object;",
+                frame -> {
+                    JJvmObject thisRef = (JJvmObject) frame.getLocalVars().getThis();
+                    JJvmClass cloneable = thisRef.getJJvmClass().getClassLoader().loadClass("java/lang/Cloneable");
+                    if (!thisRef.getJJvmClass().isImplements(cloneable)) {
+                        throw new RuntimeException(new CloneNotSupportedException());
+                    }
+                    frame.getOperandStack().pushRef(thisRef.clone());
+                }
+        );
     }
 }

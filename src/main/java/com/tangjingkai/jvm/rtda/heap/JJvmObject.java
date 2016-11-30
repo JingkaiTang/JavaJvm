@@ -3,7 +3,7 @@ package com.tangjingkai.jvm.rtda.heap;
 /**
  * Created by totran on 11/19/16.
  */
-public class JJvmObject {
+public class JJvmObject implements Cloneable {
     JJvmClass cls;
     Object data;
     Object extra;
@@ -28,8 +28,9 @@ public class JJvmObject {
     public JJvmObject(JJvmClass jjvmClass, Object arr) {
         this.cls = jjvmClass;
         this.data = arr;
-
     }
+
+    private JJvmObject() {}
 
     public JJvmClass getJJvmClass() {
         return cls;
@@ -105,5 +106,32 @@ public class JJvmObject {
     public JJvmObject getRefVar(String name, String descriptor) {
         JJvmField field = cls.getField(name, descriptor, false);
         return (JJvmObject) ((JJvmSlots) data).getRef(field.slotId);
+    }
+
+    @Override
+    public JJvmObject clone() {
+        JJvmObject cl = new JJvmObject();
+        cl.cls = cls;
+        if (data instanceof byte[]) {
+            cl.data = getBytes().clone();
+        } else if (data instanceof short[]) {
+            cl.data = getShorts().clone();
+        } else if (data instanceof int[]) {
+            cl.data = getInts().clone();
+        } else if (data instanceof long[]) {
+            cl.data = getLongs().clone();
+        } else if (data instanceof char[]) {
+            cl.data = getChars().clone();
+        } else if (data instanceof float[]) {
+            cl.data = getFloats().clone();
+        } else if (data instanceof double[]) {
+            cl.data = getDoubles().clone();
+        } else if (data instanceof JJvmObject[]) {
+            cl.data = getRefs().clone();
+        } else {
+            cl.data = ((JJvmSlots) data).clone();
+        }
+
+        return cl;
     }
 }

@@ -65,4 +65,8 @@ public class LocalVars {
     public Object getRef(int index) {
         return slots[index].getRef();
     }
+
+    public Object getThis() {
+        return getRef(0);
+    }
 }

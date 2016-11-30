@@ -24,6 +24,15 @@ public class JJvmClass {
     int instanceSlotCount;
     int staticSlotCount;
     JJvmSlots staticVars;
+    JJvmObject jClass;
+
+    public JJvmObject getjClass() {
+        return jClass;
+    }
+
+    public void setjClass(JJvmObject jClass) {
+        this.jClass = jClass;
+    }
 
     public JJvmClassLoader getClassLoader() {
         return loader;
@@ -373,5 +382,9 @@ public class JJvmClass {
             }
         }
         return null;
+    }
+
+    public String getJavaName() {
+        return name.replace("/", ".");
     }
 }

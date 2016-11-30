@@ -47,6 +47,37 @@ public class JJvmMethod extends JJvmClassMember {
         if (!isStatic()) {
             this.argSlotCount++;
         }
+        if (isNative()) {
+            // inject code for native method
+            this.maxStack = 4;
+            this.maxLocals = this.argSlotCount;
+            switch (md.returnType.charAt(0)) {
+                case 'V':
+                    // return
+                    this.code = new byte[] {(byte) 0xfe, (byte) 0xb1};
+                    break;
+                case 'D':
+                    // dreturn
+                    this.code = new byte[] {(byte) 0xfe, (byte) 0xaf};
+                    break;
+                case 'F':
+                    // freturn
+                    this.code = new byte[] {(byte) 0xfe, (byte) 0xae};
+                    break;
+                case 'J':
+                    // lreturn
+                    this.code = new byte[] {(byte) 0xfe, (byte) 0xad};
+                    break;
+                case 'L':
+                case '[':
+                    // areturn
+                    this.code = new byte[] {(byte) 0xfe, (byte) 0xb0};
+                    break;
+                default:
+                    // ireturn
+                    this.code = new byte[] {(byte) 0xfe, (byte) 0xac};
+            }
+        }
     }
 
     public static JJvmMethod[] extractMethods(JJvmClass jjvmClass, MemberInfo[] methods) {

@@ -3,6 +3,7 @@ package com.tangjingkai.jvm.rtda.heap;
 import com.tangjingkai.jvm.classfile.ClassFile;
 import com.tangjingkai.jvm.classpath.Classpath;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -16,16 +17,54 @@ public class JJvmClassLoader {
     public JJvmClassLoader(Classpath cp) {
         this.classPath = cp;
         this.classMap = new HashMap<>();
+        JJvmClass jlClassClass = loadClass("java/lang/Class");
+        for (Map.Entry<String, JJvmClass> entry : classMap.entrySet()) {
+            JJvmClass cls = entry.getValue();
+            if (cls.jClass == null) {
+                cls.jClass = jlClassClass.newObject();
+                cls.jClass.extra = cls;
+            }
+        }
+        // load primitive class
+        Arrays.asList(
+                "void",
+                "boolean",
+                "byte",
+                "short",
+                "int",
+                "long",
+                "char",
+                "float",
+                "double"
+        ).forEach(className -> {
+            JJvmClass cls = new JJvmClass();
+            cls.accessFlags = JJvmAccessFlag.ACC_PUBLIC;
+            cls.name = className;
+            cls.loader = this;
+            cls.initStarted = true;
+            cls.jClass = this.classMap.get("java/lang/Class").newObject();
+            cls.jClass.extra = cls;
+            this.classMap.put(className, cls);
+        });
     }
 
     public JJvmClass loadClass(String name) {
         if (classMap.containsKey(name)) {
             return classMap.get(name);
         }
+        JJvmClass cls = null;
         if (name.charAt(0) == '[') {
-            return loadArrayClass(name);
+            cls = loadArrayClass(name);
+        } else {
+            cls = loadNonArrayClass(name);
         }
-        return loadNonArrayClass(name);
+
+        if (classMap.containsKey("java/lang/Class")) {
+            cls.jClass = classMap.get("java/lang/Class").newObject();
+            cls.jClass.extra = cls;
+        }
+
+        return cls;
     }
 
     private JJvmClass loadArrayClass(String name) {

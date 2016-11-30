@@ -1,5 +1,7 @@
 package com.tangjingkai.jvm.instructions;
 
+import com.tangjingkai.jvm.naive.NativeMethod;
+import com.tangjingkai.jvm.naive.NativeMethods;
 import com.tangjingkai.jvm.rtda.*;
 import com.tangjingkai.jvm.rtda.Thread;
 import com.tangjingkai.jvm.rtda.heap.*;
@@ -307,10 +309,12 @@ public class Instructions {
                         } else if (c instanceof Float) {
                             stack.pushFloat((Float) c);
                         } else if (c instanceof String) {
-                            JJvmObject internedStr = InternedStrings.getString(cls.getClassLoader(), (String)c);
+                            JJvmObject internedStr = InternedStrings.getString(cls.getClassLoader(), (String) c);
                             stack.pushRef(internedStr);
-                            // TODO: ClassRef
-                            //} else if (c instanceof ClassRef) {
+                        } else if (c instanceof ClassRef) {
+                            ClassRef classRef = (ClassRef) c;
+                            JJvmObject classObj = classRef.resolvedClass().getjClass();
+                            stack.pushRef(classObj);
                         } else {
                             throw new RuntimeException("Unimplemented ldc!");
                         }
@@ -2171,14 +2175,6 @@ public class Instructions {
                 newFrame.getLocalVars().setSlot(i, frame.getOperandStack().popSlot());
             }
         }
-
-        if (method.isNative()) {
-            if (method.getName().equals("registerNatives")) {
-                thread.popFrame();
-            } else {
-                throw new RuntimeException(String.format("native method: %s.%s%s", method.getJJvmClass().getName(), method.getName(), method.getDescriptor()));
-            }
-        }
     }
 
     /**
@@ -2451,6 +2447,7 @@ public class Instructions {
                 return new Instruction() {
                     short index;
                     int dimensions;
+
                     @Override
                     public void fetchOperands(BytecodeReader reader) {
                         index = reader.readU2();
@@ -2481,7 +2478,7 @@ public class Instructions {
 
                     private int[] popAndCheckCounts(OperandStack stack) {
                         int[] counts = new int[dimensions];
-                        for (int i = dimensions-1; i >= 0; i--) {
+                        for (int i = dimensions - 1; i >= 0; i--) {
                             counts[i] = stack.popInt();
                             if (counts[i] < 0) {
                                 throw new NegativeArraySizeException();
@@ -2538,7 +2535,37 @@ public class Instructions {
      * TODO:
      * 0xc9 jsr_w
      * 0xca breakpoint
+     */
+
+    /**
      * 0xfe impdep1
+     */
+    @Bytecode(0xfe)
+    private InstructionGenerator invokeNative(int code) {
+        return new CachedInstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new NoOperandsInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmMethod method = frame.getMethod();
+                        String className = method.getJJvmClass().getName();
+                        String methodName = method.getName();
+                        String methodDescriptor = method.getDescriptor();
+
+                        NativeMethod nativeMethod = NativeMethods.findNativeMethod(className, methodName, methodDescriptor);
+                        if (nativeMethod == null) {
+                            throw new UnsatisfiedLinkError(String.format("%s.%s%s", className, methodName, methodDescriptor));
+                        }
+
+                        nativeMethod.execute(frame);
+                    }
+                };
+            }
+        };
+    }
+
+    /* TODO:
      * 0xff impdep2
      */
 

@@ -85,4 +85,16 @@ public class OperandStack {
     public Object popRef() {
         return stack.pop().getRef();
     }
+
+    public void pushBoolean(boolean val) {
+        if (val) {
+            pushInt(1);
+        } else {
+            pushInt(0);
+        }
+    }
+
+    public boolean popBoolean() {
+        return popInt() != 0;
+    }
 }

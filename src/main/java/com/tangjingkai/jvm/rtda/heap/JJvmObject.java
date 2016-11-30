@@ -6,6 +6,15 @@ package com.tangjingkai.jvm.rtda.heap;
 public class JJvmObject {
     JJvmClass cls;
     Object data;
+    Object extra;
+
+    public Object getExtra() {
+        return extra;
+    }
+
+    public void setExtra(Object extra) {
+        this.extra = extra;
+    }
 
     public JJvmObject(JJvmClass jjvmClass) {
         this.cls = jjvmClass;

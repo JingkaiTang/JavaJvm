@@ -248,7 +248,7 @@ public class JJvmClass {
         return getStaticMethod("main", "([Ljava/lang/String;)V");
     }
 
-    private JJvmMethod getStaticMethod(String name, String descriptor) {
+    public JJvmMethod getStaticMethod(String name, String descriptor) {
         if (methods == null) {
             return null;
         }

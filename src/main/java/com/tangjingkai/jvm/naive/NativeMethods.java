@@ -1,11 +1,13 @@
 package com.tangjingkai.jvm.naive;
 
+import com.tangjingkai.jvm.instructions.Instruction;
 import com.tangjingkai.jvm.instructions.Instructions;
 import com.tangjingkai.jvm.rtda.Frame;
 import com.tangjingkai.jvm.rtda.LocalVars;
 import com.tangjingkai.jvm.rtda.OperandStack;
 import com.tangjingkai.jvm.rtda.heap.*;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -220,19 +222,10 @@ public class NativeMethods {
                 "initialize",
                 "()V",
                 frame -> {
-                    JJvmClass vmClass = frame.getMethod().getJJvmClass();
-                    JJvmObject savedProps = vmClass.getRefVar("savedProps", "Ljava/util/Properties;");
-                    JJvmObject key = InternedStrings.getString(vmClass.getClassLoader(), "foo");
-                    JJvmObject val = InternedStrings.getString(vmClass.getClassLoader(), "bar");
-
-                    OperandStack stack = frame.getOperandStack();
-                    stack.pushRef(savedProps);
-                    stack.pushRef(key);
-                    stack.pushRef(val);
-
-                    JJvmClass propsClass = vmClass.getClassLoader().loadClass("java/util/Properties");
-                    JJvmMethod setPropMethod = propsClass.getInstanceMethod("setProperty", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Object;");
-                    Instructions.invokeMethod(frame, setPropMethod);
+                    JJvmClassLoader classLoader = frame.getMethod().getJJvmClass().getClassLoader();
+                    JJvmClass jlSysClass = classLoader.loadClass("java/lang/System");
+                    JJvmMethod initSysClass = jlSysClass.getStaticMethod("initializeSystemClass", "()V");
+                    Instructions.invokeMethod(frame, initSysClass);
                 }
         );
 
@@ -247,6 +240,66 @@ public class NativeMethods {
                     JJvmStackTraceElement[] stes = JJvmStackTraceElement.createStackTraceElements(thisRef, frame.getThread());
                     thisRef.setExtra(stes);
                 }
+        );
+
+        // java.lang.System::setOut0
+        register(
+                "java/lang/System",
+                "setOut0",
+                "(Ljava/io/PrintStream;)V",
+                frame -> {
+                    JJvmObject out = (JJvmObject) frame.getLocalVars().getRef(0);
+                    JJvmClass sysClass = frame.getMethod().getJJvmClass();
+                    sysClass.setRefVar("out", "Ljava/io/PrintStream;", out);
+                }
+        );
+
+        // java.io.FileOutputStream::writeBytes
+        register(
+                "java/io/FileOutputStream",
+                "writeBytes",
+                "([BIIZ)V",
+                frame -> {
+                    LocalVars vars = frame.getLocalVars();
+                    // this
+                    JJvmObject b = (JJvmObject) vars.getRef(1);
+                    int off = vars.getInt(2);
+                    int len = vars.getInt(3);
+                    // append
+                    byte[] data = b.getBytes();
+                    String str = new String(data, off, len);
+                    System.out.println(str);
+                }
+        );
+
+        // java.lang.System::initProperties
+        register(
+                "java/lang/System",
+                "initProperties",
+                "(Ljava/util/Properties;)Ljava/util/Properties;",
+                frame -> {
+                    LocalVars vars = frame.getLocalVars();
+                    JJvmObject props = (JJvmObject) vars.getRef(0);
+                    OperandStack stack = frame.getOperandStack();
+                    stack.pushRef(props);
+                    // ...
+                }
+        );
+
+        // java.io.FileInputStream::initIDs
+        register(
+                "java/io/FileInputStream",
+                "initIDs",
+                "()V",
+                frame -> {}
+        );
+
+        // java.io.FileDescriptor::initIDs
+        register(
+                "java/io/FileDescriptor",
+                "initIDs",
+                "()V",
+                frame -> {}
         );
     }
 }

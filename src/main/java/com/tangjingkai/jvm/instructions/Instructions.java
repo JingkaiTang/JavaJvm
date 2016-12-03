@@ -1962,12 +1962,6 @@ public class Instructions {
                         JJvmObject ref = (JJvmObject) frame.getOperandStack().getRefFromTop(resolvedMethod.getArgSlotCount() - 1);
 
                         if (ref == null) {
-                            // hack System.out.println()
-                            if (methodRef.getName().equals("println")) {
-                                fakePrintln(frame.getOperandStack(), methodRef.getDescriptor());
-                                return;
-                            }
-
                             throw new NullPointerException();
                         }
 

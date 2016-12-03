@@ -22,6 +22,23 @@ public class ExceptionsAttribute implements AttributeInfo {
         short startPc;
         short endPc;
         short handlerPc;
+
+        public short getStartPc() {
+            return startPc;
+        }
+
+        public short getEndPc() {
+            return endPc;
+        }
+
+        public short getHandlerPc() {
+            return handlerPc;
+        }
+
+        public short getCatchType() {
+            return catchType;
+        }
+
         short catchType;
 
         private ExceptionTableEntry() {

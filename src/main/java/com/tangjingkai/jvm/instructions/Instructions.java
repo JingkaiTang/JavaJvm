@@ -2340,10 +2340,60 @@ public class Instructions {
         };
     }
 
-    /*
-     * TODO:
+    /**
      * 0xbf athrow
      */
+    @Bytecode(0xbf)
+    private InstructionGenerator athrow(int code) {
+        return new CachedInstructionGenerator(code) {
+            @Override
+            Instruction construct() {
+                return new NoOperandsInstruction() {
+                    @Override
+                    public void execute(Frame frame) {
+                        JJvmObject ex = (JJvmObject) frame.getOperandStack().popRef();
+                        if (ex == null) {
+                            throw new NullPointerException();
+                        }
+                        Thread thread = frame.getThread();
+                        if (!findAndGotoExceptionHandler(thread, ex)) {
+                            handleUncaughtException(thread, ex);
+                        }
+                    }
+
+                    private void handleUncaughtException(Thread thread, JJvmObject ex) {
+                        thread.clearStack();
+                        JJvmObject jMsg = ex.getRefVar("detailMessage", "Ljava/lang/String;");
+                        String msg = InternedStrings.unwrapString(jMsg);
+                        System.out.format("%s: %s", ex.getJJvmClass().getName(), msg);
+
+                        // ...
+                    }
+
+                    private boolean findAndGotoExceptionHandler(Thread thread, JJvmObject ex) {
+                        while (true) {
+                            Frame frame = thread.currentFrame();
+                            int pc = frame.getNextPC() - 1;
+                            int handlerPC = frame.getMethod().findExceptionHandler(ex.getJJvmClass(), pc);
+                            if (handlerPC > 0) {
+                                OperandStack stack =frame.getOperandStack();
+                                stack.clear();
+                                stack.pushRef(ex);
+                                frame.setNextPC(handlerPC);
+                                return true;
+                            }
+
+                            thread.popFrame();
+                            if (thread.isStackEmpty()) {
+                                break;
+                            }
+                        }
+                        return false;
+                    }
+                };
+            }
+        };
+    }
 
     /**
      * 0xc0 checkcast

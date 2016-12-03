@@ -40,4 +40,13 @@ public class CodeAttribute implements AttributeInfo {
         exceptionTable = ExceptionsAttribute.ExceptionTableEntry.readExceptionTable(reader);
         attributes = AttributeInfo.readAttributes(reader, constantPool);
     }
+
+    public LineNumberTableAttribute getLineNumberTableAttribute() {
+        for (AttributeInfo ai: attributes) {
+            if (ai instanceof LineNumberTableAttribute) {
+                return (LineNumberTableAttribute) ai;
+            }
+        }
+        return null;
+    }
 }

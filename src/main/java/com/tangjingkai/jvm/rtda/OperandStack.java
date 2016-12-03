@@ -97,4 +97,8 @@ public class OperandStack {
     public boolean popBoolean() {
         return popInt() != 0;
     }
+
+    public void clear() {
+        stack.clear();
+    }
 }

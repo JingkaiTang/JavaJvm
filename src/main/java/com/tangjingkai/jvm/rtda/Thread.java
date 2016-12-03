@@ -40,4 +40,12 @@ public class Thread {
     public boolean isStackEmpty() {
         return stack.isEmpty();
     }
+
+    public void clearStack() {
+        stack.clear();
+    }
+
+    public Frame[] getFrames() {
+        return stack.deque.toArray(new Frame[0]);
+    }
 }

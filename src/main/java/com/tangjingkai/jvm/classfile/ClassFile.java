@@ -132,4 +132,21 @@ public class ClassFile {
         }
         throw new RuntimeException("java.lang.UnsupportedClassVersionError!");
     }
+
+    public String getSourceFile() {
+        SourceFileAttribute sfa = getSourceFileAttribute();
+        if (sfa != null) {
+            return sfa.getFileName();
+        }
+        return "Unknown";
+    }
+
+    private SourceFileAttribute getSourceFileAttribute() {
+        for (AttributeInfo ai : attributes) {
+            if (ai instanceof SourceFileAttribute) {
+                return (SourceFileAttribute) ai;
+            }
+        }
+        return null;
+    }
 }

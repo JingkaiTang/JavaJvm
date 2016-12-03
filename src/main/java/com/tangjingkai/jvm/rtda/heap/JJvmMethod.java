@@ -1,6 +1,7 @@
 package com.tangjingkai.jvm.rtda.heap;
 
 import com.tangjingkai.jvm.classfile.CodeAttribute;
+import com.tangjingkai.jvm.classfile.LineNumberTableAttribute;
 import com.tangjingkai.jvm.classfile.MemberInfo;
 
 /**
@@ -11,6 +12,8 @@ public class JJvmMethod extends JJvmClassMember {
     int maxLocals;
     byte[] code;
     int argSlotCount;
+    ExceptionTable exceptionTable;
+    LineNumberTableAttribute lineNumberTable;
 
     public int getArgSlotCount() {
         return argSlotCount;
@@ -35,6 +38,8 @@ public class JJvmMethod extends JJvmClassMember {
             this.maxStack = Short.toUnsignedInt(codeAttr.getMaxStack());
             this.maxLocals = Short.toUnsignedInt(codeAttr.getMaxLocals());
             this.code = codeAttr.getCode();
+            this.lineNumberTable = codeAttr.getLineNumberTableAttribute();
+            this.exceptionTable = new ExceptionTable(codeAttr.getExceptionTable(), this.jjvmClass.getConstantPool());
         }
         this.argSlotCount = 0;
         JJvmMethodDescriptor md = JJvmMethodDescriptor.parse(method.getDescriptor());
@@ -92,6 +97,14 @@ public class JJvmMethod extends JJvmClassMember {
         return jjvmMethods;
     }
 
+    public int findExceptionHandler(JJvmClass exClass, int pc) {
+        ExceptionHandler handler = this.exceptionTable.findExceptionHandler(exClass, pc);
+        if (handler != null) {
+            return handler.getHandlerPC();
+        }
+        return -1;
+    }
+
     public boolean isSynchronized() {
         return 0 != (accessFlags & JJvmAccessFlag.ACC_SYNCHRONIZED);
     }
@@ -114,5 +127,15 @@ public class JJvmMethod extends JJvmClassMember {
 
     public boolean isAbstract() {
         return 0 != (accessFlags & JJvmAccessFlag.ACC_ABSTRACT);
+    }
+
+    public int getLineNumber(int pc) {
+        if (isNative()) {
+            return -2;
+        }
+        if (lineNumberTable == null) {
+            return -1;
+        }
+        return lineNumberTable.getLineNumber(pc);
     }
 }

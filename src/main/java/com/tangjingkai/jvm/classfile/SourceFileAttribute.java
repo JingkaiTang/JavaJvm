@@ -8,6 +8,7 @@ public class SourceFileAttribute implements AttributeInfo {
     short sourceFileIndex;
 
     public SourceFileAttribute(ConstantPool constantPool) {
+        this.constantPool = constantPool;
     }
 
     @Override

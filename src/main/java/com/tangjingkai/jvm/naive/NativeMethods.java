@@ -235,5 +235,18 @@ public class NativeMethods {
                     Instructions.invokeMethod(frame, setPropMethod);
                 }
         );
+
+        // java.lang.Throwable::fillInStackTrace
+        register(
+                "java/lang/Throwable",
+                "fillInStackTrace",
+                "(I)Ljava/lang/Throwable;",
+                frame -> {
+                    JJvmObject thisRef = (JJvmObject) frame.getLocalVars().getThis();
+                    frame.getOperandStack().pushRef(thisRef);
+                    JJvmStackTraceElement[] stes = JJvmStackTraceElement.createStackTraceElements(thisRef, frame.getThread());
+                    thisRef.setExtra(stes);
+                }
+        );
     }
 }

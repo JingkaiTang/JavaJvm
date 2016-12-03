@@ -38,4 +38,8 @@ public class Stack<E> {
     public boolean isEmpty() {
         return deque.isEmpty();
     }
+
+    public void clear() {
+        deque.clear();
+    }
 }

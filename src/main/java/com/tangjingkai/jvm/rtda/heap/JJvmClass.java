@@ -25,6 +25,7 @@ public class JJvmClass {
     int staticSlotCount;
     JJvmSlots staticVars;
     JJvmObject jClass;
+    private String sourceFile;
 
     public JJvmObject getjClass() {
         return jClass;
@@ -44,7 +45,7 @@ public class JJvmClass {
         this.accessFlags = Short.toUnsignedInt(cf.getAccessFlags());
         this.name = cf.getClassName();
         this.superClassName = cf.getSuperClassName();
-
+        this.sourceFile = cf.getSourceFile();
         this.interfaceNames = cf.getInterfaceNames();
         this.constantPool = new JJvmConstantPool(this, cf.getConstantPool());
         this.fields = JJvmField.extractFileds(this, cf.getFields());
@@ -417,5 +418,9 @@ public class JJvmClass {
             }
         }
         return null;
+    }
+
+    public String getSourceFile() {
+        return sourceFile;
     }
 }
